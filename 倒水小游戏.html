@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Water Sort Pro - 专业色彩增强版</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --tube-w: 50px;
+            --anim-speed: 0.4s;
+            --scale: 1;
+        }
+
+        body {
+            background: #020617; /* 深蓝黑背景 */
+            color: #f8fafc;
+            font-family: 'PingFang SC', system-ui, sans-serif;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* 游戏主舞台：强制单排行排版 */
+        #game-stage {
+            position: relative;
+            width: 100%;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: row;
+            flex-wrap: nowrap; /* 绝对禁止换行 */
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            gap: calc(10px * var(--scale));
+            transform-origin: center center;
+            overflow-x: auto; /* 极窄屏幕允许滚动而非折行 */
+        }
+
+        /* 隐藏滚动条 */
+        #game-stage::-webkit-scrollbar { display: none; }
+
+        .tube-wrapper {
+            position: relative;
+            width: var(--tube-w);
+            transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), 
+                        left 0.5s ease, top 0.5s ease;
+            z-index: 10;
+            flex-shrink: 0;
+        }
+
+        .tube-glass {
+            width: 100%;
+            height: 100%;
+            border: 2px solid rgba(255, 255, 255, 0.25);
+            border-top: none;
+            border-radius: 0 0 25px 25px;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            position: relative;
+            overflow: hidden; 
+            z-index: 2;
+            box-shadow: 
+                inset 0 0 10px rgba(255,255,255,0.1),
+                0 4px 15px rgba(0,0,0,0.5);
+        }
+
+        /* 瓶口 */
+        .tube-glass::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            background: rgba(255, 255, 255, 0.5);
+            z-index: 30;
+        }
+
+        /* 液体层 */
+        .liquid-layer {
+            position: absolute;
+            width: 100%;
+            bottom: 0;
+            display: flex;
+            flex-direction: column-reverse;
+            height: 100%;
+        }
+
+        .color-block {
+            width: 100%;
+            transition: height var(--anim-speed) ease-in-out, background-color 0.3s;
+            border-top: 1px solid rgba(255, 255, 255, 0.15); /* 增加液体分层感 */
+            position: relative;
+        }
+
+        /* 瓶塞 */
+        .cork {
+            position: absolute;
+            top: -15px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-50px);
+            width: 36px;
+            height: 24px;
+            background: #451a03;
+            border-radius: 4px 4px 2px 2px;
+            opacity: 0;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 50;
+        }
+        .cork.active { opacity: 1; transform: translateX(-50%) translateY(4px); }
+
+        /* 选中态 */
+        .tube-wrapper.selected .tube-glass {
+            transform: translateY(-30px);
+            border-color: #3b82f6;
+            box-shadow: 0 0 25px rgba(59, 130, 246, 0.4);
+        }
+
+        /* 水流线 */
+        .water-stream {
+            position: absolute;
+            width: 8px;
+            z-index: 5;
+            opacity: 0;
+            pointer-events: none;
+            border-radius: 4px;
+            transition: opacity 0.2s, height 0.3s;
+        }
+
+        .busy { pointer-events: none; }
+
+        .btn-ui {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.2s;
+        }
+        .btn-ui:hover { background: rgba(255, 255, 255, 0.1); }
+        .btn-ui.active { background: #3b82f6; border-color: #3b82f6; color: white; box-shadow: 0 0 15px rgba(59, 130, 246, 0.3); }
+    </style>
+</head>
+<body>
+
+    <div class="w-full max-w-7xl p-6 flex flex-col items-center z-50">
+        <div class="flex flex-wrap items-center justify-between w-full gap-4">
+            <h1 class="text-2xl font-black italic tracking-tighter text-blue-400">WATER SORT <span class="text-white">PRO</span></h1>
+            <div class="flex space-x-1 bg-white/5 p-1 rounded-2xl backdrop-blur-md">
+                <button onclick="changeDifficulty('easy')" id="btn-easy" class="btn-ui px-4 py-1.5 rounded-xl text-xs font-bold">新手</button>
+                <button onclick="changeDifficulty('medium')" id="btn-medium" class="btn-ui px-4 py-1.5 rounded-xl text-xs font-bold">高手(5层/3空)</button>
+                <button onclick="changeDifficulty('hard')" id="btn-hard" class="btn-ui px-4 py-1.5 rounded-xl text-xs font-bold">神级(6层/4空)</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="game-stage">
+        <!-- 动态生成 -->
+    </div>
+
+    <div class="p-8 w-full max-w-md flex space-x-4">
+        <button onclick="initGame()" class="flex-1 py-4 bg-white/5 rounded-3xl font-bold border border-white/10 transition">重置</button>
+        <button onclick="initGame()" class="flex-1 py-4 bg-blue-600 rounded-3xl font-bold shadow-xl transition active:scale-95">开启新局</button>
+    </div>
+
+    <div id="win-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-xl hidden flex items-center justify-center z-[2000]">
+        <div class="bg-slate-900 border border-white/10 p-12 rounded-[50px] text-center shadow-2xl">
+            <div class="text-7xl mb-6 animate-bounce">🏆</div>
+            <h2 class="text-3xl font-black text-white mb-2 tracking-tight">恭喜过关！</h2>
+            <button onclick="initGame()" class="mt-8 px-16 py-4 bg-blue-600 text-white rounded-2xl font-bold text-lg">挑战下一关</button>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * 极致色彩区分板
+         * 红色：更加深邃的血红色 (#B30000)
+         * 橙色：极高亮度的芒果橙 (#FFA500)
+         * 绿色1：极其鲜艳的荧光绿 (#00FF00)
+         * 绿色2：极其深沉的森林绿 (#004D00)
+         */
+        const PALETTE = [
+            '#B30000', // 深红 (修正)
+            '#0066FF', // 亮蓝
+            '#00FF00', // 荧光绿 (保持)
+            '#FFFF00', // 金黄
+            '#9900FF', // 电动紫
+            '#FFA500', // 鲜橙 (修正)
+            '#00FFFF', // 亮青
+            '#FF00FF', // 桃红
+            '#FFFFFF', // 纯白
+            '#8B4513', // 咖啡棕
+            '#B0C4DE', // 浅灰蓝
+            '#004D00'  // 森林绿 (修正)
+        ];
+
+        let state = {
+            diff: 'easy',
+            capacity: 4,
+            bottles: [], // { colors: [], isBusy: false }
+            selectedIdx: null,
+            bottleHeight: 180
+        };
+
+        const CONFIG = {
+            easy: { cap: 4, colors: 4, empty: 2, scale: 1 },
+            medium: { cap: 5, colors: 8, empty: 3, scale: 0.8 },
+            hard: { cap: 6, colors: 12, empty: 4, scale: 0.65 }
+        };
+
+        function changeDifficulty(d) {
+            state.diff = d;
+            state.capacity = CONFIG[d].cap;
+            state.bottleHeight = d === 'easy' ? 180 : (d === 'medium' ? 220 : 270);
+            
+            // 响应式单排缩放
+            document.documentElement.style.setProperty('--scale', CONFIG[d].scale);
+            document.documentElement.style.setProperty('--tube-w', d === 'hard' ? '38px' : (d === 'medium' ? '46px' : '52px'));
+
+            document.querySelectorAll('[id^="btn-"]').forEach(b => b.classList.remove('active'));
+            document.getElementById(`btn-${d}`).classList.add('active');
+            initGame();
+        }
+
+        function initGame() {
+            document.getElementById('win-modal').classList.add('hidden');
+            const conf = CONFIG[state.diff];
+            let colorPool = [];
+            for (let i = 0; i < conf.colors; i++) {
+                for (let j = 0; j < state.capacity; j++) colorPool.push(PALETTE[i % PALETTE.length]);
+            }
+            colorPool.sort(() => Math.random() - 0.5);
+
+            state.bottles = [];
+            for (let i = 0; i < conf.colors; i++) {
+                state.bottles.push({ colors: colorPool.slice(i * state.capacity, (i + 1) * state.capacity), isBusy: false });
+            }
+            for (let i = 0; i < conf.empty; i++) {
+                state.bottles.push({ colors: [], isBusy: false });
+            }
+            state.selectedIdx = null;
+            renderAll();
+        }
+
+        function renderAll() {
+            const stage = document.getElementById('game-stage');
+            stage.innerHTML = '';
+            state.bottles.forEach((_, i) => createBottleDOM(i));
+        }
+
+        function createBottleDOM(idx) {
+            const stage = document.getElementById('game-stage');
+            const b = state.bottles[idx];
+            let wrapper = document.getElementById(`bottle-${idx}`);
+            if (!wrapper) {
+                wrapper = document.createElement('div');
+                wrapper.id = `bottle-${idx}`;
+                stage.appendChild(wrapper);
+            }
+            
+            wrapper.className = `tube-wrapper ${state.selectedIdx === idx ? 'selected' : ''} ${b.isBusy ? 'busy' : ''}`;
+            wrapper.style.height = `${state.bottleHeight}px`;
+            
+            const solved = isBottleSolved(idx);
+            const unitH = 100 / state.capacity;
+            
+            wrapper.innerHTML = `
+                <div class="cork ${solved ? 'active' : ''}"></div>
+                <div class="tube-glass" onclick="handleInteraction(${idx})">
+                    <div class="liquid-layer">
+                        ${b.colors.map(c => `<div class="color-block" style="background:${c}; height:${unitH}%"></div>`)
+                        .concat(Array(state.capacity - b.colors.length).fill(null).map(() => `<div class="color-block" style="height:0"></div>`)).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        async function handleInteraction(idx) {
+            const b = state.bottles[idx];
+            if (b.isBusy || isBottleSolved(idx)) return;
+            if (state.selectedIdx === null) {
+                if (b.colors.length === 0) return;
+                state.selectedIdx = idx;
+                updateSelectionUI();
+            } else {
+                if (state.selectedIdx === idx) {
+                    state.selectedIdx = null;
+                } else if (checkCanPour(state.selectedIdx, idx)) {
+                    const from = state.selectedIdx;
+                    state.selectedIdx = null;
+                    await pourWater(from, idx);
+                } else {
+                    state.selectedIdx = idx;
+                }
+                updateSelectionUI();
+            }
+        }
+
+        function updateSelectionUI() {
+            state.bottles.forEach((_, i) => {
+                const el = document.getElementById(`bottle-${i}`);
+                if (el) el.classList.toggle('selected', state.selectedIdx === i);
+            });
+        }
+
+        function checkCanPour(fromIdx, toIdx) {
+            const f = state.bottles[fromIdx], t = state.bottles[toIdx];
+            if (f.colors.length === 0 || t.colors.length >= state.capacity) return false;
+            if (t.colors.length > 0 && f.colors[f.colors.length - 1] !== t.colors[t.colors.length - 1]) return false;
+            return true;
+        }
+
+        async function pourWater(fromIdx, toIdx) {
+            state.bottles[fromIdx].isBusy = true;
+            state.bottles[toIdx].isBusy = true;
+            const fromWrap = document.getElementById(`bottle-${fromIdx}`);
+            const toWrap = document.getElementById(`bottle-${toIdx}`);
+            
+            const fRect = fromWrap.getBoundingClientRect();
+            const tRect = toWrap.getBoundingClientRect();
+            const isToLeft = tRect.left < fRect.left;
+
+            // 1. 瓶口对齐
+            const tubeW = fromWrap.offsetWidth;
+            const moveX = (tRect.left - fRect.left) + (isToLeft ? tubeW - 5 : -tubeW + 5);
+            const moveY = tRect.top - fRect.top - 10;
+
+            fromWrap.style.zIndex = "500";
+            fromWrap.style.transform = `translate(${moveX}px, ${moveY}px)`;
+            await sleep(500);
+
+            // 2. 倾斜
+            fromWrap.style.transformOrigin = isToLeft ? "0% 0%" : "100% 0%";
+            const tiltAngle = isToLeft ? -85 : 85;
+            fromWrap.style.transform = `translate(${moveX}px, ${moveY}px) rotate(${tiltAngle}deg)`;
+            await sleep(400);
+
+            // 3. 水流
+            const stream = document.createElement('div');
+            stream.className = 'water-stream';
+            const color = state.bottles[fromIdx].colors[state.bottles[fromIdx].colors.length-1];
+            stream.style.background = color;
+            stream.style.left = `${tRect.left + tRect.width/2 - 3}px`;
+            stream.style.top = `${tRect.top}px`;
+            stream.style.opacity = '1';
+            document.body.appendChild(stream);
+            
+            const unitH = state.bottleHeight / state.capacity;
+            const dropH = (state.capacity - state.bottles[toIdx].colors.length) * unitH;
+            setTimeout(() => stream.style.height = `${dropH}px`, 20);
+
+            // 4. 倒水循环
+            while (checkCanPour(fromIdx, toIdx) && state.bottles[fromIdx].colors[state.bottles[fromIdx].colors.length-1] === color) {
+                const fIdx = state.bottles[fromIdx].colors.length - 1;
+                const tIdx = state.bottles[toIdx].colors.length;
+                const fBlocks = fromWrap.querySelectorAll('.color-block');
+                const tBlocks = toWrap.querySelectorAll('.color-block');
+
+                fBlocks[fIdx].style.height = "0";
+                tBlocks[tIdx].style.background = color;
+                tBlocks[tIdx].style.height = `${100/state.capacity}%`;
+
+                state.bottles[toIdx].colors.push(state.bottles[fromIdx].colors.pop());
+                await sleep(450);
+            }
+
+            // 5. 复位
+            stream.style.opacity = "0";
+            fromWrap.style.transform = `translate(${moveX}px, ${moveY}px) rotate(0deg)`;
+            await sleep(500);
+            fromWrap.style.transform = "translate(0,0)";
+            await sleep(500);
+            fromWrap.style.zIndex = "10";
+            if (stream.parentNode) document.body.removeChild(stream);
+            
+            state.bottles[fromIdx].isBusy = false;
+            state.bottles[toIdx].isBusy = false;
+            createBottleDOM(fromIdx);
+            createBottleDOM(toIdx);
+            checkVictory();
+        }
+
+        function isBottleSolved(idx) {
+            const b = state.bottles[idx];
+            if (b.colors.length === 0) return false;
+            return b.colors.length === state.capacity && b.colors.every(c => c === b.colors[0]);
+        }
+
+        function checkVictory() {
+            const win = state.bottles.every(b => b.colors.length === 0 || isBottleSolved(state.bottles.indexOf(b)));
+            if (win) setTimeout(() => document.getElementById('win-modal').classList.remove('hidden'), 500);
+        }
+
+        function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+        window.onload = () => changeDifficulty('easy');
+    </script>
+</body>
+</html>
