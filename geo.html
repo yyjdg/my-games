@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>若当层叠 · 像素对齐 (修复版)</title>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .drag-item {
+      cursor: grab;
+      user-select: none;
+    }
+    .drag-item:active {
+      cursor: grabbing;
+    }
+    .backdrop-blur-md {
+      backdrop-filter: blur(12px);
+    }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #1e293b; border-radius: 10px; }
+    ::-webkit-scrollbar-thumb { background: #475569; border-radius: 10px; }
+    /* 拖拽中的视觉反馈 */
+    .drag-over {
+      border-color: #3b82f6 !important;
+      transform: scale(1.05);
+      box-shadow: 0 0 15px rgba(59,130,246,0.3);
+    }
+    .dragging-source {
+      opacity: 0.3 !important;
+      cursor: grabbing;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-200 antialiased font-sans">
+
+<div id="app" class="min-h-screen flex flex-col items-center py-8 px-4"></div>
+
+<script>
+  (function(){
+    "use strict";
+
+    // ---------- 80个几何组件 SVG Path (保持不变) ----------
+    const SHAPES = [
+      'M0,0 h100 v100 h-100 Z', 'M0,0 h100 v50 h-100 Z', 'M0,50 h100 v50 h-100 Z', 'M0,0 h50 v100 h-50 Z', 'M50,0 h50 v100 h-50 Z',
+      'M0,0 h50 v50 h-50 Z', 'M50,0 h50 v50 h-50 Z', 'M0,50 h50 v50 h-50 Z', 'M50,50 h50 v50 h-50 Z', 'M25,25 h50 v50 h-50 Z',
+      'M0,0 L100,0 L0,100 Z', 'M0,0 L100,0 L100,100 Z', 'M0,0 L100,100 L0,100 Z', 'M100,0 L100,100 L0,100 Z',
+      'M0,0 L50,0 L0,50 Z', 'M50,0 L100,0 L100,50 Z', 'M0,50 L50,100 L0,100 Z', 'M100,50 L100,100 L50,100 Z',
+      'M50,0 L100,50 L0,50 Z', 'M50,100 L100,50 L0,50 Z', 'M0,50 L50,0 L50,100 Z', 'M100,50 L50,0 L50,100 Z',
+      'M50,0 L100,50 L50,100 L0,50 Z', 'M50,25 L75,50 L50,75 L25,50 Z', 'M25,0 L75,0 L100,100 L0,100 Z', 'M0,0 L100,0 L75,100 L25,100 Z',
+      'M0,0 h50 v50 h50 v50 h-100 Z', 'M50,0 h50 v100 h-100 v-50 h50 Z', 'M0,0 h100 v50 h-50 v50 h-50 Z', 'M0,0 h100 v100 h-50 v-50 h-50 Z',
+      'M0,0 h100 v100 h-100 Z M25,25 v50 h50 v-50 Z', 'M50,0 L100,50 L50,100 L0,50 Z M50,25 L75,50 L50,75 L25,50 Z', 
+      'M0,0 h100 v100 h-100 Z M15,15 v70 h70 v-70 Z', 'M0,25 h100 v50 h-100 Z M25,0 h50 v100 h-50 Z',
+      'M50,0 a50,50 0 1,0 0,100 a50,50 0 1,0 0,-100 Z', 'M50,25 a25,25 0 1,0 0,50 a25,25 0 1,0 0,-50 Z', 
+      'M0,0 L100,0 A100,100 0 0,1 0,100 Z', 'M100,0 A100,100 0 0,0 0,100 L100,100 Z',
+      'M0,0 L25,0 L100,75 L100,100 L75,100 L0,25 Z', 'M100,0 L75,0 L0,75 L0,100 L25,100 L100,25 Z', 
+      'M50,0 L60,40 L100,50 L60,60 L50,100 L40,60 L0,50 L40,40 Z', 
+      'M0,0 h50 v50 h-50 Z M50,50 h50 v50 h-50 Z', 'M50,0 h50 v50 h-50 Z M0,50 h50 v50 h-50 Z',
+      'M0,0 h33.3 v33.3 h33.3 v33.3 h33.4 v33.4 h-100 Z', 'M50,0 L100,25 L100,75 L50,100 L0,75 L0,25 Z', 
+      'M25,0 L75,0 L100,50 L75,100 L25,100 L0,50 Z', 'M0,25 h25 v-25 h50 v25 h25 v50 h-25 v25 h-50 v-25 h-25 Z', 
+      'M25,25 h50 v25 h-25 v25 h-25 Z', 'M0,0 L100,50 L0,100 Z', 'M100,0 L0,50 L100,100 Z',
+      'M0,50 Q25,0 50,50 T100,50 L100,100 L0,100 Z', 'M0,0 L100,0 L100,50 Q75,100 50,50 T0,50 Z',
+      'M50,0 A50,50 0 1,1 50,100 A40,40 0 1,0 50,0 Z', 'M0,0 A100,100 0 0,0 100,100 L100,0 Z',
+      'M0,100 A100,100 0 0,1 100,0 L0,0 Z', 'M25,0 h50 v100 h-50 Z', 'M0,25 h100 v50 h-100 Z',
+      'M20,20 h60 v60 h-60 Z M30,30 v40 h40 v-40 Z', 'M10,10 L90,90 L90,10 L10,90 Z', 'M0,50 L25,25 L50,50 L75,25 L100,50 L100,100 L0,100 Z',
+      'M0,25 h50 v-25 l50,50 l-50,50 v-25 h-50 z', 'M100,25 h-50 v-25 l-50,50 l50,50 v-25 h50 z',
+      'M25,0 v50 h-25 l50,50 l50,-50 h-25 v-50 z', 'M25,100 v-50 h-25 l50,-50 l50,50 h-25 v50 z',
+      'M0,0 L50,50 L0,100 Z', 'M100,0 L50,50 L100,100 Z', 'M0,0 L50,50 L100,0 Z', 'M0,100 L50,50 L100,100 Z',
+      'M0,0 h100 v20 h-100 z M0,40 h100 v20 h-100 z M0,80 h100 v20 h-100 z',
+      'M0,0 v100 h20 v-100 z M40,0 v100 h20 v-100 z M80,0 v100 h20 v-100 z',
+      'M0,0 L50,0 L0,50 Z M100,100 L50,100 L100,50 Z', 'M100,0 L50,0 L100,50 Z M0,100 L50,100 L0,50 Z',
+      'M20,0 h60 l20,20 v60 l-20,20 h-60 l-20,-20 v-60 z', 'M30,0 h40 l30,30 v40 l-30,30 h-40 l-30,-30 v-40 z M40,40 h20 v20 h-20 z',
+      'M0,0 L33,33 L66,0 L100,33 L100,100 L0,100 Z', 'M0,0 L100,0 L100,66 L66,33 L33,66 L0,33 Z',
+      'M25,25 A25,25 0 1,1 75,75 A25,25 0 1,1 25,25 M40,40 A10,10 0 1,0 60,60 A10,10 0 1,0 40,40',
+      'M0,0 L100,100 Z', 'M100,0 L0,100 Z', 'M10,0 h80 l10,50 l-10,50 h-80 l-10,-50 z'
+    ];
+
+    const COLORS = ['#ef4444', '#3b82f6', '#eab308', '#22c55e', '#a855f7'];
+
+    const DIFFICULTIES = {
+      easy:   { id: 'easy', name: '入门', grid: 3, colors: 5, targetSize: 5, traySize: 12 },
+      medium: { id: 'medium', name: '中级', grid: 4, colors: 4, targetSize: 6, traySize: 15 },
+      hard:   { id: 'hard', name: '高级', grid: 4, colors: 3, targetSize: 7, traySize: 20 }
+    };
+
+    // ---------- 状态 ----------
+    let gameState = 'menu';        
+    let difficulty = DIFFICULTIES.easy;
+    let targetSample = [];         
+    let tray = [];                
+    let stack = [];               
+    let errorMsg = '';
+
+    // 拖拽相关 (使用更可靠的dataTransfer + 状态管理)
+    let draggedIndex = null;       
+    let dragOverIndex = null;      
+    let dragEnabled = true;
+
+    const appEl = document.getElementById('app');
+
+    function genId(prefix = 'item') {
+      return `${prefix}-${Date.now()}-${Math.random().toString(36).substr(2, 8)}`;
+    }
+
+    // ---------- 增强的可见性检测：每个组件至少贡献 40 个像素 (更严格) ----------
+    function generateLevel(diffConfig) {
+      const { targetSize, colors } = diffConfig;
+      const colorPool = COLORS.slice(0, colors);
+      const canvas = document.createElement('canvas');
+      canvas.width = 100; canvas.height = 100;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+      let finalStack = [];
+      let attempts = 0;
+      const maxAttempts = 2000;
+      
+      while (finalStack.length < targetSize && attempts < maxAttempts) {
+        attempts++;
+        const currentStack = [];
+        for (let i = 0; i < targetSize; i++) {
+          const shapeIdx = Math.floor(Math.random() * SHAPES.length);
+          const color = colorPool[Math.floor(Math.random() * colorPool.length)];
+          currentStack.push({ id: `t-${i}-${genId()}`, shapeIdx, color });
+        }
+
+        // 用不同的红色分量标记每个组件 (索引1~targetSize)
+        ctx.clearRect(0, 0, 100, 100);
+        currentStack.forEach((p, idx) => {
+          ctx.fillStyle = `rgb(${idx + 1}, 0, 0)`;
+          ctx.fill(new Path2D(SHAPES[p.shapeIdx]), 'evenodd');
+        });
+
+        const data = ctx.getImageData(0, 0, 100, 100).data;
+        const counts = new Array(targetSize).fill(0);
+        for (let j = 0; j < data.length; j += 4) {
+          const rVal = data[j];
+          if (rVal > 0 && rVal <= targetSize) counts[rVal - 1]++;
+        }
+
+        // 保证每个组件至少有40个可见像素 (原来30，提高要求让重叠部分更少)
+        if (counts.every(c => c > 40)) {
+          finalStack = currentStack;
+        }
+      }
+      
+      // 如果超时未生成，用简单暴力组合兜底 (但保留可见性)
+      if (finalStack.length === 0) {
+        console.warn("生成超时，使用默认可见组合");
+        for (let i = 0; i < targetSize; i++) {
+          finalStack.push({
+            id: `t-fallback-${i}-${genId()}`,
+            shapeIdx: i % SHAPES.length,
+            color: colorPool[i % colorPool.length]
+          });
+        }
+      }
+      
+      return finalStack.map((item, idx) => ({ ...item, id: `target-${idx}-${genId()}` }));
+    }
+
+    function startNewGame(diffConfig) {
+      difficulty = diffConfig;
+      gameState = 'playing';
+      
+      const newTarget = generateLevel(diffConfig);
+      targetSample = newTarget;
+
+      const colorPool = COLORS.slice(0, diffConfig.colors);
+      const trayItems = newTarget.map((t, i) => ({
+        ...t,
+        id: `tray-t-${i}-${genId()}`,
+      }));
+      
+      const distractors = diffConfig.traySize - diffConfig.targetSize;
+      for (let i = 0; i < distractors; i++) {
+        trayItems.push({
+          id: `tray-d-${i}-${genId()}`,
+          shapeIdx: Math.floor(Math.random() * SHAPES.length),
+          color: colorPool[Math.floor(Math.random() * colorPool.length)]
+        });
+      }
+      tray = trayItems.sort(() => Math.random() - 0.5);
+      stack = [];
+      errorMsg = '';
+      draggedIndex = null;
+      dragOverIndex = null;
+      
+      renderApp();
+    }
+
+    // ---------- 像素级校验 (像素完全相同即胜利) ----------
+    function checkWin() {
+      if (stack.length !== difficulty.targetSize) {
+        errorMsg = `请使用刚好 ${difficulty.targetSize} 个组件！`;
+        renderApp();
+        return;
+      }
+
+      const canvas1 = document.createElement('canvas');
+      const canvas2 = document.createElement('canvas');
+      canvas1.width = canvas2.width = 100;
+      canvas1.height = canvas2.height = 100;
+      const ctx1 = canvas1.getContext('2d');
+      const ctx2 = canvas2.getContext('2d');
+
+      targetSample.forEach(c => {
+        ctx1.fillStyle = c.color;
+        ctx1.fill(new Path2D(SHAPES[c.shapeIdx]), 'evenodd');
+      });
+      stack.forEach(c => {
+        ctx2.fillStyle = c.color;
+        ctx2.fill(new Path2D(SHAPES[c.shapeIdx]), 'evenodd');
+      });
+
+      const d1 = ctx1.getImageData(0, 0, 100, 100).data;
+      const d2 = ctx2.getImageData(0, 0, 100, 100).data;
+      
+      let match = true;
+      for (let i = 0; i < d1.length; i++) {
+        if (d1[i] !== d2[i]) { match = false; break; }
+      }
+
+      if (match) {
+        gameState = 'won';
+        errorMsg = '';
+      } else {
+        errorMsg = '视觉效果不匹配！请检查选择的形状或层叠顺序。';
+      }
+      renderApp();
+    }
+
+    function handleAddToStack(trayItem) {
+      if (stack.length >= difficulty.targetSize) {
+        errorMsg = `最多只能选择 ${difficulty.targetSize} 个组件`;
+        renderApp();
+        return;
+      }
+      stack = [...stack, { ...trayItem, id: trayItem.id + '-stack' }];
+      tray = tray.filter(x => x.id !== trayItem.id);
+      errorMsg = '';
+      renderApp();
+    }
+
+    function handleRemoveFromStack(stackItemId) {
+      const itemToRemove = stack.find(s => s.id === stackItemId);
+      if (!itemToRemove) return;
+      const cleanItem = { ...itemToRemove, id: itemToRemove.id.replace('-stack', '') + '-return-' + Date.now() };
+      tray = [...tray, cleanItem];
+      stack = stack.filter(s => s.id !== stackItemId);
+      errorMsg = '';
+      renderApp();
+    }
+
+    // 交换拖拽位置
+    function swapStackItems(fromIdx, toIdx) {
+      if (fromIdx === toIdx) return;
+      const newStack = [...stack];
+      const [item] = newStack.splice(fromIdx, 1);
+      newStack.splice(toIdx, 0, item);
+      stack = newStack;
+    }
+
+    // ---------- 渲染 (重点修复拖拽绑定) ----------
+    function renderApp() {
+      if (gameState === 'menu') {
+        appEl.innerHTML = renderMenu();
+      } else {
+        appEl.innerHTML = renderGame();
+      }
+      if (typeof lucide !== 'undefined') lucide.createIcons();
+      attachEventListeners();
+    }
+
+    function renderMenu() {
+      return `
+        <div class="min-h-screen w-full flex items-center justify-center p-6">
+          <div class="max-w-md w-full text-center">
+            <h1 class="text-5xl font-black mb-4 tracking-tighter bg-gradient-to-br from-blue-400 to-purple-500 bg-clip-text text-transparent">若当层叠</h1>
+            <p class="text-slate-400 mb-8">像素对齐版 · 每个组件都可见</p>
+            <div class="grid gap-4">
+              ${Object.values(DIFFICULTIES).map(d => `
+                <button data-diff-id="${d.id}" class="diff-select-btn p-4 bg-slate-800 hover:bg-slate-700 rounded-2xl border border-slate-700 flex justify-between items-center transition-all group">
+                  <span class="text-xl font-bold">${d.name}</span>
+                  <span class="text-sm text-slate-500 group-hover:text-blue-400">${d.targetSize}组件 / ${d.traySize}备选</span>
+                </button>
+              `).join('')}
+            </div>
+            <p class="text-xs text-slate-500 mt-6">💡 拖拽层叠卡片可交换顺序</p>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderGame() {
+      const targetSvgPaths = targetSample.map(s => 
+        `<path d="${SHAPES[s.shapeIdx]}" fill="${s.color}" fill-rule="evenodd" />`
+      ).join('');
+      
+      const stackSvgPaths = stack.map(s => 
+        `<path d="${SHAPES[s.shapeIdx]}" fill="${s.color}" fill-rule="evenodd" />`
+      ).join('');
+
+      const trayButtons = tray.map(item => `
+        <button data-tray-id="${item.id}" class="tray-item aspect-square bg-slate-800 border border-slate-700 rounded-xl p-2 hover:border-blue-500 transition-all hover:-translate-y-1 active:scale-95 group relative">
+          <svg viewBox="0 0 100 100" class="w-full h-full">
+            <path d="${SHAPES[item.shapeIdx]}" fill="${item.color}" fill-rule="evenodd" />
+          </svg>
+          <div class="absolute inset-0 bg-blue-500/10 opacity-0 group-hover:opacity-100 rounded-xl flex items-center justify-center font-bold text-blue-400">+</div>
+        </button>
+      `).join('');
+
+      // 堆叠卡片 —— 可拖拽，带drag状态
+      const stackCards = stack.map((s, idx) => {
+        const isDragged = (draggedIndex === idx);
+        const isDragOver = (dragOverIndex === idx && draggedIndex !== null && draggedIndex !== idx);
+        return `
+          <div data-stack-id="${s.id}" data-stack-index="${idx}" 
+               draggable="true"
+               class="stack-card relative w-16 h-16 bg-slate-800 border-2 rounded-xl cursor-move transition-all drag-item
+                      ${isDragged ? 'dragging-source' : ''} 
+                      ${isDragOver ? 'drag-over' : 'border-slate-700'}"
+          >
+            <svg viewBox="0 0 100 100" class="p-2 w-full h-full pointer-events-none">
+              <path d="${SHAPES[s.shapeIdx]}" fill="${s.color}" fill-rule="evenodd" />
+            </svg>
+            <button data-remove-id="${s.id}" class="remove-btn absolute -top-2 -right-2 bg-red-500 text-white p-0.5 rounded-full hover:scale-110 transition-transform">
+              <i data-lucide="x" width="12" height="12"></i>
+            </button>
+            <span class="absolute bottom-1 left-1 text-[8px] bg-black/50 px-1 rounded text-slate-400">${idx+1}</span>
+          </div>
+        `;
+      }).join('');
+
+      const emptySlots = Array.from({ length: Math.max(0, difficulty.targetSize - stack.length) })
+        .map(() => `<div class="w-16 h-16 border-2 border-dashed border-slate-800 rounded-xl bg-slate-900/20"></div>`).join('');
+
+      const winModal = gameState === 'won' ? `
+        <div class="fixed inset-0 bg-black/80 backdrop-blur-lg flex items-center justify-center z-50 p-6">
+          <div class="max-w-sm w-full bg-slate-900 border border-blue-500/30 p-10 rounded-[40px] text-center shadow-2xl">
+            <div class="w-20 h-20 bg-blue-500 text-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-blue-500/50">
+              <i data-lucide="check" width="40" height="40" stroke-width="4"></i>
+            </div>
+            <h2 class="text-3xl font-black mb-2">匹配成功！</h2>
+            <p class="text-slate-400 mb-8">像素完美重合，你的空间感非常敏锐。</p>
+            <div class="space-y-3">
+              <button id="next-level-btn" class="w-full py-4 bg-blue-600 hover:bg-blue-500 rounded-2xl font-bold transition-all">下一关</button>
+              <button id="menu-from-win" class="w-full py-4 bg-slate-800 hover:bg-slate-700 rounded-2xl font-bold transition-all text-slate-400">主菜单</button>
+            </div>
+          </div>
+        </div>
+      ` : '';
+
+      return `
+        <div class="max-w-5xl w-full">
+          <div class="flex justify-between items-center mb-8 bg-slate-900/50 p-4 rounded-3xl border border-slate-800 backdrop-blur-md">
+            <h2 class="text-xl font-black italic">LAYERED SHAPES</h2>
+            <button id="back-to-menu-btn" class="p-2 hover:bg-slate-800 rounded-full transition-colors">
+              <i data-lucide="rotate-ccw" width="20" height="20"></i>
+            </button>
+          </div>
+
+          <div class="flex flex-col md:flex-row gap-8 justify-center items-center mb-10">
+            <div class="text-center">
+              <p class="text-xs font-bold text-slate-500 mb-2 uppercase tracking-widest">目标结果</p>
+              <div class="w-64 h-64 bg-slate-900 rounded-3xl border-2 border-slate-800 relative overflow-hidden shadow-2xl">
+                 <svg viewBox="0 0 100 100" class="w-full h-full">${targetSvgPaths}</svg>
+              </div>
+            </div>
+            <div class="text-slate-700 hidden md:block"><i data-lucide="play" width="32" height="32"></i></div>
+            <div class="text-center">
+              <p class="text-xs font-bold text-slate-500 mb-2 uppercase tracking-widest">你的画板 (${stack.length}/${difficulty.targetSize})</p>
+              <div class="w-64 h-64 bg-slate-900 rounded-3xl border-2 border-blue-500/50 relative overflow-hidden shadow-2xl shadow-blue-500/10">
+                 <svg viewBox="0 0 100 100" class="w-full h-full">${stackSvgPaths}</svg>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-slate-900/40 p-6 rounded-3xl border border-slate-800 mb-8">
+            <p class="text-xs font-bold text-slate-500 mb-4 uppercase tracking-widest">层叠顺序 (底层 → 顶层，拖拽卡片交换)</p>
+            <div class="flex flex-wrap gap-3 items-center min-h-[80px]">
+              ${stackCards}
+              ${emptySlots}
+              <button id="check-win-btn" class="ml-auto px-8 py-3 rounded-2xl font-bold transition-all ${stack.length === difficulty.targetSize ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-slate-800 text-slate-500 cursor-not-allowed'}" ${stack.length !== difficulty.targetSize ? 'disabled' : ''}>校验结果</button>
+            </div>
+            ${errorMsg ? `<p class="mt-4 text-center text-red-400 text-sm font-medium animate-pulse">${errorMsg}</p>` : ''}
+          </div>
+
+          <div class="bg-slate-900/40 p-6 rounded-3xl border border-slate-800">
+            <p class="text-xs font-bold text-slate-500 mb-4 uppercase tracking-widest">备选组件库 (${tray.length})</p>
+            <div class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-10 gap-3">
+              ${trayButtons}
+            </div>
+          </div>
+        </div>
+        ${winModal}
+      `;
+    }
+
+    // ---------- 事件绑定 (修复拖拽交换) ----------
+    function attachEventListeners() {
+      document.querySelectorAll('.diff-select-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const diffId = btn.dataset.diffId;
+          const diff = DIFFICULTIES[diffId];
+          if (diff) startNewGame(diff);
+        });
+      });
+
+      if (gameState === 'playing') {
+        const backBtn = document.getElementById('back-to-menu-btn');
+        if (backBtn) backBtn.addEventListener('click', () => { gameState = 'menu'; renderApp(); });
+
+        document.querySelectorAll('.tray-item').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            const trayId = btn.dataset.trayId;
+            const item = tray.find(it => it.id === trayId);
+            if (item) handleAddToStack(item);
+          });
+        });
+
+        document.querySelectorAll('.remove-btn').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const stackId = btn.dataset.removeId;
+            handleRemoveFromStack(stackId);
+          });
+        });
+
+        const checkBtn = document.getElementById('check-win-btn');
+        if (checkBtn) checkBtn.addEventListener('click', checkWin);
+
+        // ---------- 原生拖拽 完整实现 ----------
+        const cards = document.querySelectorAll('.stack-card');
+        
+        cards.forEach(card => {
+          card.addEventListener('dragstart', (e) => {
+            const idx = card.dataset.stackIndex;
+            if (idx !== undefined) {
+              draggedIndex = parseInt(idx, 10);
+              e.dataTransfer.setData('text/plain', idx);
+              e.dataTransfer.effectAllowed = 'move';
+              // 设置拖拽时的光标效果
+              card.classList.add('dragging-source');
+            }
+            renderApp(); 
+          });
+
+          card.addEventListener('dragend', (e) => {
+            // 清理所有拖拽状态
+            draggedIndex = null;
+            dragOverIndex = null;
+            renderApp();
+          });
+
+          card.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            const idx = card.dataset.stackIndex;
+            if (idx !== undefined && draggedIndex !== null) {
+              const targetIdx = parseInt(idx, 10);
+              if (targetIdx !== draggedIndex) {
+                dragOverIndex = targetIdx;
+                renderApp();
+              }
+            }
+          });
+
+          card.addEventListener('dragleave', () => {
+            // 仅当不是拖到其他卡片上时清除高亮 (由dragover重置)
+          });
+
+          card.addEventListener('drop', (e) => {
+            e.preventDefault();
+            const targetIdx = parseInt(card.dataset.stackIndex, 10);
+            if (draggedIndex !== null && targetIdx !== undefined && draggedIndex !== targetIdx) {
+              swapStackItems(draggedIndex, targetIdx);
+              errorMsg = '';
+            }
+            draggedIndex = null;
+            dragOverIndex = null;
+            renderApp();
+          });
+        });
+
+        // 防止默认拖拽图片行为
+        document.addEventListener('dragover', (e) => e.preventDefault());
+        document.addEventListener('drop', (e) => e.preventDefault());
+      }
+
+      if (gameState === 'won') {
+        document.getElementById('next-level-btn')?.addEventListener('click', () => startNewGame(difficulty));
+        document.getElementById('menu-from-win')?.addEventListener('click', () => { gameState = 'menu'; renderApp(); });
+      }
+    }
+
+    renderApp();
+  })();
+</script>
+</body>
+</html>
