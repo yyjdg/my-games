@@ -1,0 +1,1624 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>双扣：大牌局（博弈论大师版）</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&display=swap');
+        
+        body {
+            font-family: 'Noto Sans SC', sans-serif;
+            background-color: #064e3b;
+            overflow: hidden;
+            user-select: none;
+            color: white;
+        }
+
+        .poker-table {
+            background: radial-gradient(circle at center, #065f46 0%, #064e3b 100%);
+            box-shadow: inset 0 0 100px rgba(0,0,0,0.5);
+            border: 10px solid #047857;
+        }
+
+        .card {
+            width: 75px;
+            height: 105px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            border: 1px solid #ddd;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 4px 5px;
+            cursor: pointer;
+            transition: transform 0.2s cubic-bezier(0.1, 0.7, 0.1, 1);
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        .card.selected {
+            transform: translateY(-40px) !important;
+            border: 3px solid #fbbf24;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.4);
+            z-index: 100 !important;
+        }
+
+        .card.is-trump-suit {
+            background: #fffdf0;
+            border-color: #fde68a;
+        }
+
+        .card-symbol-main {
+            font-size: 1.6rem;
+            line-height: 1;
+            text-align: center;
+            opacity: 0.6;
+        }
+
+        .card-value {
+            font-weight: 900;
+            font-size: 1.1rem;
+            line-height: 1.1;
+        }
+
+        .card-suit-mini {
+            font-size: 0.85rem;
+            line-height: 1;
+            margin-top: 2px;
+        }
+
+        .joker-text {
+            font-size: 0.65rem;
+            font-weight: 900;
+            line-height: 0.75;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            letter-spacing: -1px;
+        }
+
+        #my-hand {
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            width: 100%;
+            height: 160px;
+            padding: 0 30px;
+        }
+
+        .player-avatar {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            border: 3px solid rgba(255,255,255,0.2);
+            background: #064e3b;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            transition: all 0.3s;
+            position: relative;
+        }
+
+        .active-turn .player-avatar {
+            border-color: #fbbf24;
+            box-shadow: 0 0 20px #fbbf24;
+            transform: scale(1.05);
+        }
+
+        .active-turn .thinking-dots::after {
+            content: '...';
+            animation: dots 1.5s steps(5, end) infinite;
+        }
+
+        @keyframes dots {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60% { content: '...'; }
+            80%, 100% { content: ''; }
+        }
+
+        .msg-bubble {
+            background: rgba(0,0,0,0.85);
+            backdrop-filter: blur(4px);
+            padding: 10px 24px;
+            border-radius: 30px;
+            border: 1px solid rgba(251,191,36,0.4);
+            font-size: 0.95rem;
+            color: #fbbf24;
+            animation: fadeIn 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translate(-50%, 15px); }
+            to { opacity: 1; transform: translate(-50%, 0); }
+        }
+
+        .trump-tag {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: #fbbf24;
+            color: black;
+            font-size: 9px;
+            font-weight: bold;
+            padding: 1px 3px;
+            border-radius: 3px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            z-index: 10;
+        }
+
+        .modal {
+            background: rgba(0,0,0,0.9);
+            backdrop-filter: blur(10px);
+            border: 2px solid #fbbf24;
+            box-shadow: 0 0 50px rgba(0,0,0,0.8);
+        }
+        
+        .ai-debug-info {
+            position: absolute;
+            top: 100px;
+            left: 20px;
+            background: rgba(0,0,0,0.75);
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 11px;
+            max-width: 220px;
+            backdrop-filter: blur(4px);
+            border-left: 3px solid #fbbf24;
+            z-index: 20;
+        }
+        
+        /* 记牌器下拉菜单 */
+        .tracker-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            background: #1a2a1f;
+            border: 1px solid #fbbf24;
+            border-radius: 12px;
+            min-width: 320px;
+            max-height: 450px;
+            overflow-y: auto;
+            z-index: 100;
+            box-shadow: 0 10px 30px black;
+            display: none;
+        }
+        
+        .tracker-dropdown.show {
+            display: block;
+        }
+        
+        .card-tracker-item {
+            display: inline-block;
+            width: 44px;
+            text-align: center;
+            padding: 4px;
+            margin: 2px;
+            background: #2d3a2c;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+        
+        .card-tracker-item.played {
+            opacity: 0.4;
+            text-decoration: line-through;
+            background: #3a2a2a;
+        }
+        
+        .suit-header {
+            font-weight: bold;
+            padding: 6px;
+            background: #0f2a1a;
+            margin-top: 4px;
+            border-radius: 6px;
+        }
+        
+        .main-suit-group {
+            background: #5a3a1a;
+            border-left: 3px solid #fbbf24;
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col">
+
+    <div class="h-20 bg-black/40 backdrop-blur-md border-b border-white/10 flex items-center justify-between px-8 z-50">
+        <div class="flex items-center gap-8">
+            <div class="flex flex-col">
+                <span class="text-[10px] text-emerald-400 font-bold uppercase tracking-widest">当前庄家</span>
+                <span id="ui-banker" class="text-xl font-black text-yellow-400">--</span>
+            </div>
+            <div class="w-px h-10 bg-white/20"></div>
+            <div class="flex flex-col">
+                <span class="text-[10px] text-emerald-400 font-bold uppercase tracking-widest">本局主牌</span>
+                <div id="ui-main-suit" class="flex items-center gap-2 font-bold text-lg text-white">
+                    <span>等待开局</span>
+                </div>
+            </div>
+            <div class="w-px h-10 bg-white/20"></div>
+            <div class="flex flex-col relative">
+                <span class="text-[10px] text-emerald-400 font-bold uppercase tracking-widest">记牌器</span>
+                <div class="flex items-center gap-2 relative">
+                    <button id="card-tracker-btn" class="px-3 py-1 bg-emerald-700 hover:bg-emerald-600 rounded text-sm font-medium transition-all" onclick="toggleTrackerDropdown()">
+                        📋 记牌器
+                    </button>
+                    <span id="card-tracker-count" class="text-white font-bold">0/108</span>
+                </div>
+                <div id="tracker-dropdown" class="tracker-dropdown">
+                    <div class="p-3 border-b border-emerald-700 sticky top-0 bg-[#1a2a1f]">
+                        <span class="font-bold text-yellow-400">📊 牌面追踪器</span>
+                        <button onclick="closeTrackerDropdown()" class="float-right text-white/60 hover:text-white">✕</button>
+                    </div>
+                    <div id="tracker-content" class="p-2"></div>
+                </div>
+            </div>
+            <div class="w-px h-10 bg-white/20"></div>
+            <div class="flex flex-col">
+                <span class="text-[10px] text-emerald-400 font-bold uppercase tracking-widest">贝叶斯胜率</span>
+                <span id="bayes-winrate" class="text-sm font-mono text-yellow-400">--%</span>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-10">
+            <div class="text-right">
+                <span class="text-[10px] text-emerald-400 font-bold uppercase tracking-widest">积分队得分</span>
+                <div class="flex items-baseline gap-2">
+                    <span id="ui-score" class="text-4xl font-black text-white">0</span>
+                    <span class="text-emerald-500 font-bold">/ 85</span>
+                </div>
+            </div>
+            <button onclick="confirmReset()" class="p-3 bg-white/5 hover:bg-white/10 rounded-full transition-all">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+            </button>
+        </div>
+    </div>
+
+    <div class="flex-grow relative poker-table m-4 rounded-[60px] overflow-hidden">
+        
+        <div id="ai-debug" class="ai-debug-info">
+            <div class="text-emerald-400 font-bold mb-2">🎲 战术与推演</div>
+            <div id="ai-debug-content">
+                <div>队友胜率: <span id="debug-teammate-prob">--</span></div>
+                <div>对手威胁: <span id="debug-threat">--</span></div>
+                <div>当前策略: <span id="debug-strategy">等待</span></div>
+            </div>
+        </div>
+
+        <div id="p2" class="absolute top-6 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 transition-all">
+            <div class="player-avatar">对</div>
+            <div class="bg-black/40 px-3 py-1 rounded-full text-xs">对家 <span class="card-count">27</span></div>
+        </div>
+
+        <div id="p1" class="absolute left-8 top-1/2 -translate-y-1/2 flex flex-col items-center gap-2 transition-all">
+            <div class="player-avatar">左</div>
+            <div class="bg-black/40 px-3 py-1 rounded-full text-xs">左手玩家 <span class="card-count">27</span></div>
+        </div>
+
+        <div id="p3" class="absolute right-8 top-1/2 -translate-y-1/2 flex flex-col items-center gap-2 transition-all">
+            <div class="player-avatar">右</div>
+            <div class="bg-black/40 px-3 py-1 rounded-full text-xs">右手玩家 <span class="card-count">27</span></div>
+        </div>
+
+        <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div class="relative w-[500px] h-[350px]">
+                <div id="table-p2" class="absolute top-0 left-1/2 -translate-x-1/2 flex gap-1 transition-all"></div>
+                <div id="table-p0" class="absolute bottom-0 left-1/2 -translate-x-1/2 flex gap-1 transition-all"></div>
+                <div id="table-p1" class="absolute left-0 top-1/2 -translate-y-1/2 flex gap-1 transition-all"></div>
+                <div id="table-p3" class="absolute right-0 top-1/2 -translate-y-1/2 flex gap-1 transition-all"></div>
+            </div>
+        </div>
+
+        <div id="msg-container" class="absolute bottom-44 left-1/2 -translate-x-1/2 z-[200]"></div>
+
+        <div class="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent pt-12 pb-6">
+            <div id="my-hand"></div>
+
+            <div id="action-bar" class="flex justify-center mt-4 gap-6 hidden">
+                <button onclick="handlePlay()" class="bg-yellow-500 hover:bg-yellow-400 text-black font-black px-14 py-2.5 rounded-full shadow-2xl transform active:scale-95 transition-all text-lg">出 牌</button>
+                <button onclick="clearSelection()" class="bg-white/10 hover:bg-white/20 text-white font-bold px-10 py-2.5 rounded-full border border-white/20 backdrop-blur-md">重 选</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="overlay" class="fixed inset-0 bg-black/80 z-[300] flex items-center justify-center backdrop-blur-sm hidden">
+        <div id="overlay-content" class="modal p-12 rounded-[40px] text-center max-w-lg w-full">
+            <h1 id="modal-title" class="text-6xl font-black text-yellow-500 italic mb-6">双扣：大牌局</h1>
+            <p id="modal-desc" class="text-emerald-300 text-lg font-bold mb-10">准备好开始了吗？</p>
+            <button id="modal-btn" onclick="initGame()" class="bg-yellow-500 text-black px-16 py-4 rounded-full text-2xl font-black hover:bg-yellow-400 shadow-[0_0_40px_rgba(234,179,8,0.4)] transition-all">
+                开 始 牌 局
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // ==================== 核心配置 ====================
+        const SUITS = {
+            SPADE: { s: '♠', l: '黑桃', c: 'text-gray-900', sort: 4 },
+            HEART: { s: '♥', l: '红桃', c: 'text-red-600', sort: 3 },
+            CLUB: { s: '♣', l: '梅花', c: 'text-gray-900', sort: 2 },
+            DIAMOND: { s: '♦', l: '方块', c: 'text-red-600', sort: 1 },
+            JOKER_SMALL: { s: '★', l: 'JOKER', c: 'text-gray-800', sort: 98 },
+            JOKER_BIG: { s: '★', l: 'JOKER', c: 'text-red-600', sort: 99 }
+        };
+
+        const RANK_VALUES = {
+            '4': 4, '6': 6, '7': 7, '8': 8, '9': 9, '10': 10, 'J': 11, 'Q': 12, 'K': 13, 'A': 14,
+            '2': 15, '3': 16, '5': 17, '小王': 18, '大王': 19
+        };
+
+        const SUIT_KEYS = ['SPADE', 'HEART', 'CLUB', 'DIAMOND'];
+        const ALL_RANKS = ['4', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A', '2', '3', '5', '小王', '大王'];
+        const POINT_RANKS = ['5', '10', 'K'];
+
+        // ==================== 记牌器 ====================
+        let playedCardTracker = new Map();
+        
+        function initTracker() {
+            playedCardTracker.clear();
+            for (let suit of SUIT_KEYS) {
+                for (let rank of ALL_RANKS.filter(r => r !== '小王' && r !== '大王')) {
+                    playedCardTracker.set(`${suit}-${rank}`, 0);
+                }
+            }
+            playedCardTracker.set(`JOKER-小王`, 0);
+            playedCardTracker.set(`JOKER-大王`, 0);
+            updateTrackerUI();
+        }
+        
+        function recordPlayedCard(card) {
+            let key;
+            if (card.rank === '小王' || card.rank === '大王') {
+                key = `JOKER-${card.rank}`;
+            } else {
+                key = `${card.suit}-${card.rank}`;
+            }
+            let current = playedCardTracker.get(key) || 0;
+            playedCardTracker.set(key, current + 1);
+            updateTrackerUI();
+        }
+        
+        function updateTrackerUI() {
+            const container = document.getElementById('tracker-content');
+            if (!container) return;
+            
+            let totalPlayed = 0;
+            for (let [, count] of playedCardTracker) totalPlayed += count;
+            document.getElementById('card-tracker-count').innerText = `${totalPlayed}/108`;
+            
+            let mainSuit = SUIT_KEYS[state.mainSuitIndex];
+            let html = '';
+            
+            html += `<div class="suit-header main-suit-group">🔥 主牌区 · ${SUITS[mainSuit]?.s || ''}${mainSuit || ''}</div>`;
+            html += `<div class="flex flex-wrap gap-1 mb-3">`;
+            for (let rank of ALL_RANKS) {
+                let key = (rank === '小王' || rank === '大王') ? `JOKER-${rank}` : `${mainSuit}-${rank}`;
+                let played = playedCardTracker.get(key) || 0;
+                let remaining = 2 - played;
+                let isPoint = POINT_RANKS.includes(rank);
+                html += `<div class="card-tracker-item ${played >= 2 ? 'played' : ''} ${isPoint ? 'bg-amber-800' : ''}">
+                    ${rank}<span class="text-[10px] ml-1">${remaining}</span>
+                </div>`;
+            }
+            html += `</div>`;
+            
+            for (let suit of SUIT_KEYS) {
+                if (suit === mainSuit) continue;
+                html += `<div class="suit-header">${SUITS[suit].s} ${suit}</div>`;
+                html += `<div class="flex flex-wrap gap-1 mb-2">`;
+                for (let rank of ALL_RANKS.filter(r => r !== '小王' && r !== '大王')) {
+                    let key = `${suit}-${rank}`;
+                    let played = playedCardTracker.get(key) || 0;
+                    let remaining = 2 - played;
+                    html += `<div class="card-tracker-item ${played >= 2 ? 'played' : ''}">
+                        ${rank}<span class="text-[10px] ml-1">${remaining}</span>
+                    </div>`;
+                }
+                html += `</div>`;
+            }
+            container.innerHTML = html;
+        }
+        
+        function toggleTrackerDropdown() {
+            document.getElementById('tracker-dropdown').classList.toggle('show');
+        }
+        function closeTrackerDropdown() {
+            document.getElementById('tracker-dropdown').classList.remove('show');
+        }
+        
+        // 组合数计算助手函数 C(n, k) 
+        // 用于计算在 n 张牌中随机抽取 k 张的所有可能组合数
+        function combinations(n, k) {
+            if (k < 0 || k > n) return 0;
+            if (k === 0 || k === n) return 1;
+            let res = 1;
+            // 优化计算，避免数字溢出
+            for (let i = 1; i <= Math.min(k, n - k); i++) {
+                res = res * (n - i + 1) / i;
+            }
+            return res;
+        }
+
+        // ==================== 贝叶斯推理引擎 ====================
+        class BayesianInference {
+            constructor() {
+                this.playedCards = [];
+                this.voidSuits = [[], [], [], []];
+            }
+            reset() {
+                this.playedCards = [];
+                this.voidSuits = [[], [], [], []];
+            }
+            recordPlay(playerId, card, mainSuit, leadMove) {
+                if (!card) return;
+                this.playedCards.push({ playerId, card });
+                recordPlayedCard(card);
+                
+                if (leadMove && leadMove.cards && leadMove.cards.length > 0) {
+                    const leadCard = leadMove.cards[0];
+                    const leadSuit = leadCard.suit;
+                    const isLeadTrump = this.isTrump(leadCard, mainSuit);
+                    
+                    if (!isLeadTrump && leadSuit !== card.suit && !this.isTrump(card, mainSuit)) {
+                        if (!this.voidSuits[playerId].includes(leadSuit)) {
+                            this.voidSuits[playerId].push(leadSuit);
+                        }
+                    }
+                }
+            }
+            isTrump(card, mainSuit) {
+                if (!card) return false;
+                return card.suit === mainSuit || [2, 3, 5, '小王', '大王'].includes(card.rank);
+            }
+            // ==========================================
+            // 修改点 1: 真实的手持分数牌概率推演
+            // ==========================================
+            getRightHandPointProb(mainSuit) {
+                let rem10 = 2 - (playedCardTracker.get(`${mainSuit}-10`) || 0);
+                let remK = 2 - (playedCardTracker.get(`${mainSuit}-K`) || 0);
+                let rem5 = 2 - (playedCardTracker.get(`${mainSuit}-5`) || 0);
+                let remainingTargetCards = rem10 + remK + rem5; // 剩余的主牌分数牌总数
+                
+                if (remainingTargetCards === 0) return 0;
+
+                // 获取当前牌局状态信息
+                const totalCards = 108;
+                const playedCardsCount = this.playedCards.length;
+                const unplayedCardsTotal = totalCards - playedCardsCount; // 未知牌库总数
+                
+                if (unplayedCardsTotal <= 0) return 0;
+
+                // 估算右侧玩家（下家）手里还有多少张牌
+                // 简单起见，平均分配剩余牌，精确的话应读取真实的 rightPlayer.hand.length
+                const estimatedHandSize = Math.floor(unplayedCardsTotal / 4); 
+
+                // 如果下家牌数不够拿这些分数牌或者异常，直接返回
+                if (estimatedHandSize <= 0 || unplayedCardsTotal < remainingTargetCards) return 0;
+
+                // 超几何分布计算：计算下家**一张分数牌都没有**的概率
+                // 公式：C(非分数牌总数, 下家手牌数) / C(未知牌库总数, 下家手牌数)
+                const probNoTargetCard = combinations(unplayedCardsTotal - remainingTargetCards, estimatedHandSize) 
+                                    / combinations(unplayedCardsTotal, estimatedHandSize);
+
+                // 下家至少有一张分数牌的概率 = 1 - 一张都没有的概率
+                const probHasTargetCard = 1 - probNoTargetCard;
+                
+                // 返回真实的数学概率 (保留两位小数防止浮点数显示过长)
+                return Math.max(0, Math.min(1, probHasTargetCard));
+            }
+
+            // ==========================================
+            // 修改点 2: 基于断门推演的队友真实胜率
+            // ==========================================
+            calculateTeammateWinProb(myId, currentTable, mainSuit) {
+                if (!currentTable || currentTable.length === 0) return 0.5;
+
+                // 1. 找出当前桌面上最大的一手牌
+                let winner = currentTable[0];
+                const leadMove = currentTable[0];
+                const leadSuit = leadMove.cards[0].suit;
+                const isLeadTrump = this.isTrump(leadMove.cards[0], mainSuit);
+
+                for (let i = 1; i < currentTable.length; i++) {
+                    if (this.comparePower(currentTable[i], winner, mainSuit) > 0) {
+                        winner = currentTable[i];
+                    }
+                }
+                
+                const teammateId = (myId + 2) % 4;
+
+                // 如果当前最大牌不是队友，胜率直接给低值
+                if (winner.playerId !== teammateId) {
+                    return 0.15; 
+                }
+
+                // 2. 如果队友当前最大，计算对手翻盘（用主牌毙掉）的真实概率
+                let probOpponentCannotBeat = 1.0;
+                
+                const unplayedCardsTotal = 108 - this.playedCards.length;
+                // 如果牌都出完了，直接返回必胜
+                if (unplayedCardsTotal <= 0) return 1.0; 
+
+                const estimatedHandSize = Math.floor(unplayedCardsTotal / 4);
+
+                // ==========================================
+                // 核心修正：绝对精准的剩余主牌计算 (不再糊弄)
+                // ==========================================
+                // 默认双副牌规则中，主牌总数通常为 36 张：
+                // 26张主花色 + 6张副牌的主点数(比如打2，另外3个花色的2) + 4张大小王
+                const TOTAL_TRUMPS_IN_GAME = 36; 
+                
+                let playedTrumpsCount = 0;
+                // 严谨遍历：统计已经被打出的所有牌中，到底有多少张是主牌
+                for (let i = 0; i < this.playedCards.length; i++) {
+                    if (this.isTrump(this.playedCards[i], mainSuit)) {
+                        playedTrumpsCount++;
+                    }
+                }
+                
+                // 真实剩余主牌数 = 游戏总主牌数 - 场上已打出的主牌数
+                let remainingTrumps = TOTAL_TRUMPS_IN_GAME - playedTrumpsCount;
+                // 防御性处理，确保不为负
+                remainingTrumps = Math.max(0, remainingTrumps); 
+                // ==========================================
+
+                // 遍历两个对手
+                for (let i = 0; i < 4; i++) {
+                    // 跳过自己、队友，且跳过已经出过牌的人
+                    if (i !== myId && i !== teammateId && !currentTable.some(t => t.playerId === i)) {
+                        
+                        let threatProb = 0;
+                        
+                        // 如果队友出的不是主牌，且对手在这个花色上“断门”了
+                        if (!isLeadTrump && this.voidSuits[i].includes(leadSuit)) {
+                            
+                            // 如果外面已经没有主牌了，对手断门也没用，威胁为 0
+                            if (remainingTrumps === 0) {
+                                threatProb = 0;
+                            } else {
+                                // 超几何分布：计算对手在剩下的牌中，摸到主牌的概率
+                                // 公式：1 - (没有主牌的组合数 / 所有未知牌的组合数)
+                                const probNoTrump = combinations(unplayedCardsTotal - remainingTrumps, estimatedHandSize) 
+                                                / combinations(unplayedCardsTotal, estimatedHandSize);
+                                
+                                threatProb = 1 - probNoTrump;
+                            }
+                        } else {
+                            // 如果没断门，或者打的本来就是主牌
+                            // 对方必须跟出比队友更大的牌（如果是主牌，还得算剩余大主牌的数量，这里暂用基础概率）
+                            threatProb = 0.2; 
+                        }
+
+                        // 对手无法击败队友的概率
+                        probOpponentCannotBeat *= (1 - threatProb);
+                    }
+                }
+
+                // 最终胜率 = 两个对手都无法击败队友的联合概率
+                return probOpponentCannotBeat;
+            }
+            comparePower(moveA, moveB, mainSuit) {
+                const typeA = moveA.type;
+                const typeB = moveB.type;
+                if (typeA === 'pair' && typeB !== 'pair') return 1;
+                if (typeA !== 'pair' && typeB === 'pair') return -1;
+                return moveA.power - moveB.power;
+            }
+        }
+
+        // ==================== 核心工具函数 ====================
+        function getCardPower(card, mainSuit) {
+            if (!card) return 0;
+            const { suit, rank } = card;
+            const isMainSuit = suit === mainSuit;
+            if (rank === '大王') return 2000;
+            if (rank === '小王') return 1850;
+            if (rank === 5 && isMainSuit) return 2100;
+            if (rank === 5 && !isMainSuit) return 1600;
+            if (rank === 3 && isMainSuit) return 1550;
+            if (rank === 3 && !isMainSuit) return 1350;
+            if (rank === 2 && isMainSuit) return 1250;
+            if (rank === 2 && !isMainSuit) return 1200;
+            let base = RANK_VALUES[rank] || parseInt(rank);
+            if (isMainSuit) return base + 400;
+            return base;
+        }
+
+        function isTrump(card, mainSuit) {
+            if (!card) return false;
+            return card.suit === mainSuit || [2, 3, 5, '小王', '大王'].includes(card.rank);
+        }
+
+        function isPointCard(c) {
+            return c.rank === 5 || c.rank === 10 || c.rank === 'K';
+        }
+
+        function isPair(cards) {
+            return cards.length === 2 && cards[0].rank === cards[1].rank && cards[0].suit === cards[1].suit;
+        }
+
+        function getAllPairs(hand) {
+            const pairs = [];
+            const used = new Set();
+            for (let i = 0; i < hand.length - 1; i++) {
+                if (used.has(i)) continue;
+                if (hand[i].rank === hand[i+1].rank && hand[i].suit === hand[i+1].suit) {
+                    pairs.push([hand[i], hand[i+1]]);
+                    used.add(i);
+                    used.add(i+1);
+                    i++;
+                }
+            }
+            return pairs;
+        }
+
+        function getAllCombos2(cards) {
+            let res = [];
+            for (let i = 0; i < cards.length - 1; i++) {
+                for (let j = i + 1; j < cards.length; j++) {
+                    res.push([cards[i], cards[j]]);
+                }
+            }
+            return res;
+        }
+
+        // ==================== 合法出牌（规则） ====================
+        function getLegalMoves(hand, leadMove, mainSuit) {
+            if (!leadMove) {
+                let moves = [];
+                hand.forEach(c => moves.push({ cards: [c], type: 'single', power: getCardPower(c, mainSuit) }));
+                getAllPairs(hand).forEach(p => moves.push({ cards: p, type: 'pair', power: getCardPower(p[0], mainSuit) }));
+                return moves;
+            }
+            
+            const needCount = leadMove.cards.length;
+            const leadCard = leadMove.cards[0];
+            const leadIsTrump = isTrump(leadCard, mainSuit);
+            const leadSuit = leadCard.suit;
+            const leadIsPair = (leadMove.type === 'pair');
+            
+            let sameSuitCards = hand.filter(c => 
+                leadIsTrump ? isTrump(c, mainSuit) : (c.suit === leadSuit && !isTrump(c, mainSuit))
+            );
+            
+            if (needCount === 2 && leadIsPair) {
+                let moves = [];
+                if (leadIsTrump) {
+                    let trumpPairs = getAllPairs(sameSuitCards);
+                    if (trumpPairs.length) {
+                        return trumpPairs.map(p => ({ cards: p, type: 'pair', power: getCardPower(p[0], mainSuit) }));
+                    }
+                }
+                if (sameSuitCards.length >= 2) {
+                    let combos = getAllCombos2(sameSuitCards);
+                    for (let combo of combos) {
+                        moves.push({ cards: combo, type: 'pair', power: isPair(combo) ? getCardPower(combo[0], mainSuit) : 0 });
+                    }
+                    return moves;
+                }
+                if (sameSuitCards.length === 1) {
+                    let otherCards = hand.filter(c => c.id !== sameSuitCards[0].id);
+                    for (let other of otherCards) {
+                        moves.push({ cards: [sameSuitCards[0], other], type: 'pair', power: 0 });
+                    }
+                    return moves;
+                }
+                let allPairs = getAllPairs(hand);
+                let trumpPairs = allPairs.filter(p => isTrump(p[0], mainSuit));
+                for (let p of trumpPairs) {
+                    moves.push({ cards: p, type: 'pair', power: getCardPower(p[0], mainSuit) });
+                }
+                let combos = getAllCombos2(hand);
+                for (let combo of combos) {
+                    moves.push({ cards: combo, type: 'pair', power: 0 });
+                }
+                return moves;
+            }
+            
+            if (sameSuitCards.length >= needCount) {
+                return sameSuitCards.map(c => ({ cards: [c], type: 'single', power: getCardPower(c, mainSuit) }));
+            }
+            return hand.map(c => ({ cards: [c], type: 'single', power: getCardPower(c, mainSuit) }));
+        }
+
+        // ==================== AI 智能决策 (终局树推演 + 战术大师版) ====================
+        function getCurrentWinner(table) {
+            if (!table || table.length === 0) return null;
+            let winner = table[0];
+            const mainSuit = SUIT_KEYS[state.mainSuitIndex];
+            
+            for (let i = 1; i < table.length; i++) {
+                const leadMove = table[0];
+                const leadIsTrump = isTrump(leadMove.cards[0], mainSuit);
+                const leadIsPair = leadMove.type === 'pair';
+                
+                const current = table[i];
+                const curIsTrump = isTrump(current.cards[0], mainSuit);
+                const curIsPair = current.type === 'pair';
+
+                if (leadIsPair) {
+                    if (curIsPair) {
+                        if (!leadIsTrump && curIsTrump) { winner = current; }
+                        else if (leadIsTrump === curIsTrump) {
+                            if (curIsTrump || current.cards[0].suit === leadMove.cards[0].suit) {
+                                if (current.power > winner.power) winner = current;
+                            }
+                        }
+                    }
+                } else {
+                    if (!leadIsTrump && curIsTrump) { winner = current; }
+                    else if (leadIsTrump === curIsTrump) {
+                        if (curIsTrump || current.cards[0].suit === leadMove.cards[0].suit) {
+                            if (current.power > winner.power) winner = current;
+                        }
+                    }
+                }
+            }
+            return winner;
+        }
+
+        function getTotalPoints(cards) {
+            return cards.reduce((sum, c) => {
+                if (c.rank === 5) return sum + 5;
+                if (c.rank === 10 || c.rank === 'K') return sum + 10;
+                return sum;
+            }, 0);
+        }
+
+        function isBigTrump(c, mainSuit) {
+            if (!isTrump(c, mainSuit)) return false;
+            if (c.rank === '大王' || c.rank === '小王') return true;
+            if ([2, 3, 5, 10, 'J', 'Q', 'K', 'A'].includes(c.rank)) return true;
+            return false;
+        }
+
+        // ==================== AI 智能决策 (战术大师 + 终局博弈 完整版) ====================
+        // ==================== 终极修补：第三家觉醒与真实博弈版 ====================
+// ==================== 终极修补：上帝视角算牌 + 极致上分 ====================
+        function chooseBestMove(moves, hand, mainSuit, currentTable, leadMove, playerId, bayesEngine) {
+            if (!moves || moves.length === 0) return null;
+
+            const myPlayer = state.players.find(p => p.id === playerId);
+            const myTeam = myPlayer.team;
+            
+            const currentWinner = getCurrentWinner(currentTable);
+            const currentWinnerPower = currentWinner ? currentWinner.power : 0;
+            const position = currentTable.length + 1; 
+            const cardsLeft = hand.length;
+
+            const isTeammateLeading = currentWinner && state.players[currentWinner.playerId].team === myTeam;
+            const isOpponentLeading = currentWinner && !isTeammateLeading;
+            const trickPoints = currentTable.reduce((sum, m) => sum + getTotalPoints(m.cards), 0);
+            const hasPointsOnTable = trickPoints > 0;
+
+            const getMoveCost = (m) => {
+                let baseCost = m.cards.reduce((sum, c) => sum + getCardPower(c, mainSuit), 0);
+                if (m.cards.some(c => isPointCard(c))) baseCost += 5000; 
+                return baseCost;
+            };
+
+            const safeMoves = moves.filter(m => !m.cards.some(c => isPointCard(c)));
+            const pointMoves = moves.filter(m => m.cards.some(c => isPointCard(c)));
+            
+            const beatMoves = currentWinner ? moves.filter(m => m.power > currentWinnerPower) : [];
+            let validBeatMoves = beatMoves;
+
+            if (position === 3 && !hasPointsOnTable) {
+                validBeatMoves = beatMoves.filter(m => {
+                    if (!m.cards.some(c => isPointCard(c))) return true;
+                    return m.power >= 1800; 
+                });
+            }
+            const minBeatMove = validBeatMoves.sort((a, b) => getMoveCost(a) - getMoveCost(b))[0]; 
+
+            const getMinTrash = () => {
+                let strictSafe = safeMoves.filter(m => !m.cards.some(c => getCardPower(c, mainSuit) > 100));
+                if (strictSafe.length > 0) return strictSafe.sort((a, b) => getMoveCost(a) - getMoveCost(b))[0];
+                if (safeMoves.length > 0) return safeMoves.sort((a, b) => getMoveCost(a) - getMoveCost(b))[0];
+                return moves.sort((a, b) => {
+                    const ptsA = getTotalPoints(a.cards);
+                    const ptsB = getTotalPoints(b.cards);
+                    if (ptsA !== ptsB) return ptsA - ptsB; 
+                    return getMoveCost(a) - getMoveCost(b); 
+                })[0];
+            };
+
+            // 终局树推演
+            if (cardsLeft <= 4) {
+                const pairsInHand = getAllPairs(hand);
+                const hasPairs = pairsInHand.length > 0;
+                const isScoringTeam = myTeam === 1; 
+                const isDealerTeam = myTeam === 0;  
+
+                if (isScoringTeam && !leadMove && cardsLeft > 2 && hasPairs) {
+                    const singles = safeMoves.filter(m => m.type === 'single' && !pairsInHand.some(p => p[0].rank === m.cards[0].rank && p[0].suit === m.cards[0].suit));
+                    if (singles.length > 0) return singles.sort((a, b) => b.power - a.power)[0]; 
+                }
+
+                if (isDealerTeam && !leadMove && cardsLeft > 2 && hasPairs) {
+                    const trumpPairs = pairsInHand.filter(p => isTrump(p[0], mainSuit));
+                    if (trumpPairs.length > 0) {
+                        const singles = safeMoves.filter(m => m.type === 'single');
+                        if (singles.length > 0) return singles.sort((a, b) => b.power - a.power)[0]; 
+                    }
+                    const subPairs = moves.filter(m => m.type === 'pair' && !isTrump(m.cards[0], mainSuit));
+                    if (subPairs.length > 0) return subPairs[0];
+                }
+
+                if (!isTeammateLeading && (!minBeatMove || !validBeatMoves.length)) {
+                    const myPointCards = hand.filter(c => isPointCard(c));
+                    if (myPointCards.length > 0) {
+                        if (isScoringTeam && hasPairs) {
+                            const strictSafe = safeMoves.sort((a, b) => getMoveCost(a) - getMoveCost(b))[0];
+                            if (strictSafe) return strictSafe; 
+                        }
+                        if (isDealerTeam && !hasPairs && cardsLeft <= 2) {
+                            const pointMovesOnly = moves.filter(m => m.cards.some(c => isPointCard(c)));
+                            if (pointMovesOnly.length > 0) return pointMovesOnly.sort((a, b) => getTotalPoints(b.cards) - getTotalPoints(a.cards))[0];
+                        }
+                    }
+                }
+                
+                if (cardsLeft === 3 && !leadMove) return moves.sort((a, b) => b.power - a.power)[0];
+            }
+
+            // 首发优先级
+            if (!leadMove) {
+                const aceMove = moves.find(m => m.type === 'single' && m.cards[0].rank === 'A' && !isTrump(m.cards[0], mainSuit));
+                if (aceMove) return aceMove;
+
+                const subPairs = safeMoves.filter(m => m.type === 'pair' && !isTrump(m.cards[0], mainSuit) && !isPointCard(m.cards[0]));
+                if (subPairs.length > 0) return subPairs.sort((a, b) => getMoveCost(a) - getMoveCost(b))[0]; 
+
+                const sosTrumpMoves = safeMoves.filter(m => m.type === 'single' && isTrump(m.cards[0], mainSuit) && getCardPower(m.cards[0], mainSuit) < 1800);
+                if (sosTrumpMoves.length > 0) return sosTrumpMoves.sort((a, b) => getMoveCost(a) - getMoveCost(b))[0];
+
+                return getMinTrash(); 
+            }
+
+            // 👉 【核心增强】：配合记牌器的给队友上分逻辑！
+            if (isTeammateLeading) {
+                let isSafeToFeed = false;
+                const wCards = currentWinner.cards;
+                const wIsTrump = isTrump(wCards[0], mainSuit);
+                const leadSuit = wIsTrump ? 'TRUMP' : wCards[0].suit;
+
+                // 🚨 记牌雷达扫射：看看还没出牌的对手里，有没有人这门牌绝了，准备拿主牌毙我们！
+                let hasDanger = false;
+                if (!wIsTrump && state.leadMove) { 
+                    const unplayedIds = [];
+                    let curr = (playerId + 1) % 4;
+                    // 找出排在我们后面且还没出牌的对手
+                    while (curr !== state.leadMove.playerId) {
+                        if (state.players[curr].team !== myTeam) unplayedIds.push(curr);
+                        curr = (curr + 1) % 4;
+                    }
+                    
+                    for (let oppId of unplayedIds) {
+                        const oppVoids = (state.voids && state.voids[oppId]) ? state.voids[oppId] : [];
+                        // 如果对手这门副牌绝了，而且他【没有】在主牌上绝门（说明手里还有主牌），那就是极度危险！
+                        if (oppVoids.includes(leadSuit) && !oppVoids.includes('TRUMP')) {
+                            hasDanger = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (position === 4) {
+                    isSafeToFeed = true; // 第四家收尾必送
+                } else {
+                    if (hasDanger) {
+                        // 发现有人绝门蹲点杀牌，打死都不送分，直接垫垃圾！
+                        isSafeToFeed = false;
+                    } else {
+                        // 对手没绝门，那就可以放心大胆评估队友的牌
+                        if (currentWinner.type === 'pair') {
+                            if (wIsTrump || (RANK_VALUES[wCards[0].rank] || 0) >= 10) isSafeToFeed = true;
+                        } else {
+                            // 队友出单张 A 或者大主牌，直接上 10！
+                            if (currentWinnerPower >= 1800 || wCards[0].rank === 'A') isSafeToFeed = true;
+                        }
+                    }
+                }
+
+                if (isSafeToFeed && pointMoves.length > 0) {
+                    // 把手里的 10 或者 K 拿出来砸给队友！
+                    return pointMoves.sort((a, b) => getTotalPoints(b.cards) - getTotalPoints(a.cards))[0];
+                }
+                
+                return getMinTrash();
+            }
+
+            if (isOpponentLeading || currentTable.length === 0) {
+                if (hasPointsOnTable && minBeatMove) return minBeatMove; 
+                if (minBeatMove && !minBeatMove.cards.some(c => isPointCard(c)) && minBeatMove.power < 1400) return minBeatMove;
+                if (minBeatMove && cardsLeft <= 3) return minBeatMove; 
+                return getMinTrash();
+            }
+
+            return getMinTrash();
+        }
+
+
+        // ==================== 全局变量 ====================
+        let state = {
+            mainSuitIndex: 0,
+            bankerId: 0,
+            turn: 0, 
+            teamScore: 0,
+            players: [
+                { id: 0, name: '玩家(我)', hand: [], team: 0, pos: 'bottom' },
+                { id: 1, name: '左手玩家', hand: [], team: 1, pos: 'left' },
+                { id: 2, name: '对家', hand: [], team: 0, pos: 'top' },
+                { id: 3, name: '右手玩家', hand: [], team: 1, pos: 'right' }
+            ],
+            table: [],
+            selectedIds: [],
+            leadMove: null,
+            isLocked: true,
+            roundCount: 0,
+            lastScore: -1,
+            gameState: 'playing',
+            tributeQueue: [],
+            playedCards: []
+        };
+        
+        let bayesianEngine = new BayesianInference();
+
+        // ==================== 辅助与生命周期函数 ====================
+        function sortHand(hand, mainSuit) {
+            return [...hand].sort((a, b) => {
+                const isTA = isTrump(a, mainSuit);
+                const isTB = isTrump(b, mainSuit);
+                if (isTA && !isTB) return -1;
+                if (!isTA && isTB) return 1;
+                if (isTA) {
+                    const pA = getCardPower(a, mainSuit);
+                    const pB = getCardPower(b, mainSuit);
+                    if (pA !== pB) return pB - pA;
+                    return SUITS[b.suit].sort - SUITS[a.suit].sort;
+                }
+                if (a.suit !== b.suit) return SUITS[b.suit].sort - SUITS[a.suit].sort;
+                return (RANK_VALUES[b.rank] || 0) - (RANK_VALUES[a.rank] || 0);
+            });
+        }
+
+        function showMsg(text) {
+            const container = document.getElementById('msg-container');
+            const bubble = document.createElement('div');
+            bubble.className = "msg-bubble font-bold mb-2";
+            bubble.innerText = text;
+            container.appendChild(bubble);
+            setTimeout(() => bubble.remove(), 2500);
+        }
+
+        function updateAIDebug() {
+            const mainSuit = SUIT_KEYS[state.mainSuitIndex];
+            const rightProb = bayesianEngine.getRightHandPointProb(mainSuit);
+            const winProb = bayesianEngine.calculateTeammateWinProb(state.turn, state.table, mainSuit);
+            
+            document.getElementById('debug-teammate-prob').innerHTML = `${(winProb * 100).toFixed(1)}%`;
+            document.getElementById('bayes-winrate').innerHTML = `${(winProb * 100).toFixed(1)}%`;
+            
+            let threatText = rightProb > 0.6 ? '⚠️ 极高' : (rightProb > 0.3 ? '中等' : '低');
+            document.getElementById('debug-threat').innerHTML = threatText;
+            
+            if (state.turn !== 0 && state.gameState === 'playing') {
+                if (rightProb > 0.6) {
+                    document.getElementById('debug-strategy').innerHTML = '⚠️ 右手有分，必须管';
+                } else if (state.table.length === 2) {
+                    document.getElementById('debug-strategy').innerHTML = '🎯 第三家，防守阻截';
+                } else {
+                    document.getElementById('debug-strategy').innerHTML = '⚔️ 伺机反超';
+                }
+            }
+        }
+
+        async function processTurn() {
+            if (state.turn === 0 || state.gameState !== 'playing') {
+                state.isLocked = false;
+                return;
+            }
+
+            state.isLocked = true;
+            await new Promise(r => setTimeout(r, 600));
+            
+            const player = state.players[state.turn];
+            const mainSuit = SUIT_KEYS[state.mainSuitIndex];
+            
+            const legalMoves = getLegalMoves(player.hand, state.leadMove, mainSuit);
+            
+            const bestMove = chooseBestMove(
+                legalMoves, 
+                player.hand, 
+                mainSuit, 
+                state.table, 
+                state.leadMove, 
+                state.turn, 
+                bayesianEngine 
+            );
+            
+            if (bestMove && bestMove.cards && bestMove.cards.length > 0) {
+                const action = bestMove.cards.some(c => isPointCard(c)) ? '送分' : '出牌';
+                showMsg(`${player.name}: ${action} ${bestMove.cards.map(c => `${c.rank}${SUITS[c.suit]?.s || ''}`).join('')}`);
+                executeMove(bestMove.cards);
+            } else {
+                state.isLocked = false;
+                processTurn();
+            }
+        }
+
+        window.onload = () => {
+            initTracker();
+            document.getElementById('overlay').classList.remove('hidden');
+        };
+
+        function initGame() {
+            document.getElementById('overlay').classList.add('hidden');
+            initTracker();
+            bayesianEngine.reset();
+            
+            const deck = [];
+            for (let i = 0; i < 2; i++) {
+                SUIT_KEYS.forEach(s => {
+                    [4, 6, 7, 8, 9, 10, 'J', 'Q', 'K', 'A', 2, 3, 5].forEach(r => {
+                        deck.push({ suit: s, rank: r, id: Math.random() });
+                    });
+                });
+                deck.push({ suit: 'JOKER_SMALL', rank: '小王', id: Math.random() });
+                deck.push({ suit: 'JOKER_BIG', rank: '大王', id: Math.random() });
+            }
+
+            for (let i = deck.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [deck[i], deck[j]] = [deck[j], deck[i]];
+            }
+
+            const oldBankerId = state.bankerId;
+            const oldScore = state.lastScore;
+
+            if (state.roundCount === 0) {
+                let bankerFound = false;
+                state.players.forEach((p, i) => {
+                    const cards = deck.slice(i * 27, (i + 1) * 27);
+                    if (!bankerFound && cards.some(c => c.suit === 'SPADE' && c.rank === 5)) {
+                        state.bankerId = i;
+                        bankerFound = true;
+                    }
+                    p.hand = cards;
+                });
+            } else {
+                state.bankerId = (state.bankerId + 3) % 4;
+                state.mainSuitIndex = (state.mainSuitIndex + 1) % 4;
+                state.players.forEach((p, i) => {
+                    p.hand = deck.slice(i * 27, (i + 1) * 27);
+                });
+            }
+
+            const mainSuit = SUIT_KEYS[state.mainSuitIndex];
+            state.players.forEach((p, i) => {
+                p.hand = sortHand(p.hand, mainSuit);
+                p.team = (i % 2 === state.bankerId % 2) ? 0 : 1;
+            });
+
+            state.turn = state.bankerId;
+            state.teamScore = 0;
+            state.table = [];
+            state.playedCards = [];
+            state.leadMove = null;
+            state.isLocked = false;
+            state.selectedIds = [];
+            state.roundCount++;
+
+            if (state.roundCount > 1 && oldScore !== -1) {
+                processTributePhase(oldBankerId, oldScore);
+            } else {
+                startPlaying();
+            }
+        }
+
+        function processTributePhase(prevBankerId, prevScore) {
+            state.gameState = 'tribute';
+            state.isLocked = true;
+            state.tributeQueue = [];
+            const mainSuit = SUIT_KEYS[state.mainSuitIndex];
+
+            let count = 0;
+            let isOldBankerTeamGiving = false;
+
+            if (prevScore === 0 || prevScore >= 300) {
+                showMsg(prevScore === 0 ? "光头！免贡" : "胀死！免贡");
+                return startPlaying();
+            } else if (prevScore < 85) {
+                count = Math.ceil((85 - prevScore) / 20);
+                isOldBankerTeamGiving = false; 
+            } else if (prevScore > 100) {
+                count = Math.floor((prevScore - 100) / 20);
+                isOldBankerTeamGiving = true; 
+            }
+
+            if (count === 0 || count >= 10) {
+                if (count >= 10) showMsg("胀死！免贡");
+                return startPlaying();
+            }
+
+            const givers = state.players.filter(p => {
+                const isPInOldBankerTeam = (p.id % 2 === prevBankerId % 2);
+                return isPInOldBankerTeam === isOldBankerTeamGiving;
+            });
+
+            const base = Math.floor(count / 2);
+            const extra = count % 2;
+            const newBanker = state.bankerId;
+
+            givers.forEach(p => {
+                let pCount = base;
+                if (extra > 0) {
+                    if (p.id === newBanker) pCount = base;
+                    else if (p.id === (newBanker + 2) % 4) pCount = base + extra;
+                    else if ((p.id + 3) % 4 === newBanker) pCount = base + extra;
+                    else if ((p.id + 3) % 4 === (newBanker + 2) % 4) pCount = base;
+                }
+
+                let actual = 0;
+                while (actual < pCount && p.hand.length > 0) {
+                    const top = p.hand[0];
+                    if (getCardPower(top, mainSuit) <= 350) {
+                        showMsg(`${p.name} 2不出门，止贡`);
+                        break;
+                    }
+                    const receiverId = (p.id + 3) % 4;
+                    state.tributeQueue.push({ from: p.id, to: receiverId, card: top });
+                    p.hand.shift();
+                    actual++;
+                }
+            });
+
+            if (state.tributeQueue.length === 0) return startPlaying();
+
+            setTimeout(() => {
+                state.tributeQueue.forEach(item => {
+                    state.players[item.to].hand.push(item.card);
+                    state.players[item.to].hand = sortHand(state.players[item.to].hand, mainSuit);
+                });
+                startReturnPhase();
+            }, 1000);
+        }
+
+        function startReturnPhase() {
+            state.gameState = 'return';
+            const userNeeds = state.tributeQueue.filter(d => d.to === 0).length;
+            
+            let msg = "<div class='text-left inline-block bg-black/30 p-4 rounded-xl w-full max-w-sm mx-auto'>";
+            const myTributes = state.tributeQueue.filter(q => q.to === 0 || q.from === 0);
+
+            if (myTributes.length > 0) {
+                myTributes.forEach(q => {
+                    const isMeGiver = (q.from === 0);
+                    const otherName = isMeGiver ? state.players[q.to].name : state.players[q.from].name;
+                    const actionText = isMeGiver ? `您 进贡给 <span class="text-yellow-400">${otherName}</span>` : `<span class="text-emerald-400">${otherName}</span> 进贡给 您`;
+                    const s = (q.card.rank==='大王')?SUITS.JOKER_BIG:((q.card.rank==='小王')?SUITS.JOKER_SMALL:SUITS[q.card.suit]);
+                    msg += `<div class="text-[0.95rem] mb-3 border-b border-white/10 pb-2 last:border-0 last:mb-0">
+                        ${actionText}
+                        <div class="mt-1 flex items-center">
+                            牌面：<span class="${s.c} bg-white px-2 py-0.5 rounded ml-1 font-black inline-flex items-baseline shadow-sm">${s.s} ${q.card.rank}</span>
+                        </div>
+                    </div>`;
+                });
+            } else {
+                msg += "<div class='text-center text-gray-300 py-2'>本局您无进贡/收贡安排</div>";
+            }
+            msg += "</div>";
+
+            document.getElementById('modal-title').innerText = "进贡明细";
+            document.getElementById('modal-desc').innerHTML = msg;
+            
+            if (userNeeds > 0) {
+                document.getElementById('modal-btn').innerText = `开始还贡 (${userNeeds}张)`;
+                document.getElementById('modal-btn').onclick = () => {
+                    document.getElementById('overlay').classList.add('hidden');
+                    state.isLocked = false;
+                    updateUI();
+                    showMsg(`请选择${userNeeds}张还贡 (不绝家,顾花色)`);
+                };
+            } else {
+                document.getElementById('modal-btn').innerText = "确认并继续";
+                document.getElementById('modal-btn').onclick = () => {
+                    document.getElementById('overlay').classList.add('hidden');
+                    autoReturnAI();
+                };
+            }
+            document.getElementById('overlay').classList.remove('hidden');
+        }
+
+        function autoReturnAI() {
+            state.players.forEach(p => {
+                if (p.id === 0) return;
+                const tasks = state.tributeQueue.filter(d => d.to === p.id);
+                if (tasks.length === 0) return;
+
+                const selected = [];
+                const sortedHand = [...p.hand].reverse();
+                const suitCount = {};
+                p.hand.forEach(c => suitCount[c.suit] = (suitCount[c.suit] || 0) + 1);
+
+                const usedSuits = new Set();
+                for (let c of sortedHand) {
+                    if (selected.length < tasks.length && suitCount[c.suit] > 1 && !usedSuits.has(c.suit)) {
+                        selected.push(c);
+                        usedSuits.add(c.suit);
+                    }
+                }
+                if (selected.length < tasks.length) {
+                    for (let c of sortedHand) {
+                        if (selected.length < tasks.length && !selected.includes(c) && suitCount[c.suit] > 1) {
+                            selected.push(c);
+                        }
+                    }
+                }
+                if (selected.length < tasks.length) {
+                    for (let c of sortedHand) {
+                        if (selected.length < tasks.length && !selected.includes(c)) {
+                            selected.push(c);
+                        }
+                    }
+                }
+
+                selected.forEach((c, idx) => {
+                    p.hand = p.hand.filter(h => h.id !== c.id);
+                    const giverId = tasks[idx].from;
+                    state.players[giverId].hand.push(c);
+                    state.players[giverId].hand = sortHand(state.players[giverId].hand, SUIT_KEYS[state.mainSuitIndex]);
+                });
+            });
+            startPlaying();
+        }
+
+        function startPlaying() {
+            state.gameState = 'playing';
+            state.turn = state.bankerId;
+            state.isLocked = false;
+            updateUI();
+            processTurn();
+        }
+
+        function updateUI() {
+            const mainSuit = SUIT_KEYS[state.mainSuitIndex];
+            document.getElementById('ui-banker').innerText = state.players[state.bankerId] ? state.players[state.bankerId].name : '--';
+            const ms = SUITS[mainSuit];
+            document.getElementById('ui-main-suit').innerHTML = `
+                <span class="${ms.c} text-2xl bg-white px-2 rounded">${ms.s}</span>
+                <span class="text-white">${ms.l}</span>
+            `;
+            document.getElementById('ui-score').innerText = state.teamScore;
+
+            const container = document.getElementById('my-hand');
+            container.innerHTML = '';
+            
+            const myHand = state.players[0].hand;
+            let overlap = -55;
+
+            myHand.forEach((card, i) => {
+                const el = document.createElement('div');
+                const isSelected = state.selectedIds.includes(card.id);
+                const isTrumpCard = isTrump(card, mainSuit);
+                
+                let sInfo;
+                let displayRank = card.rank;
+                if (card.rank === '大王') { sInfo = SUITS.JOKER_BIG; displayRank = 'JOKER'; }
+                else if (card.rank === '小王') { sInfo = SUITS.JOKER_SMALL; displayRank = 'JOKER'; }
+                else sInfo = SUITS[card.suit];
+
+                el.className = `card ${isSelected ? 'selected' : ''} ${isTrumpCard ? 'is-trump-suit' : ''}`;
+                el.style.marginLeft = i === 0 ? '0' : `${overlap}px`;
+                el.style.zIndex = i;
+
+                const isJK = (displayRank === 'JOKER');
+                const rankHtml = isJK 
+                    ? `<div class="joker-text ${sInfo.c}">${displayRank.split('').map(l=>`<span>${l}</span>`).join('')}</div>`
+                    : `<div class="card-value ${sInfo.c}">${displayRank}</div>`;
+
+                el.innerHTML = `
+                    <div class="flex flex-col items-start leading-none">
+                        ${rankHtml}
+                        ${!isJK ? `<div class="card-suit-mini ${sInfo.c}">${sInfo.s}</div>` : ''}
+                    </div>
+                    <div class="card-symbol-main ${sInfo.c}">${sInfo.s}</div>
+                    <div class="flex flex-col items-start leading-none self-end rotate-180">
+                         ${rankHtml}
+                         ${!isJK ? `<div class="card-suit-mini ${sInfo.c}">${sInfo.s}</div>` : ''}
+                    </div>
+                    ${isTrumpCard && !isJK ? '<div class="trump-tag">主</div>' : ''}
+                `;
+
+                el.onclick = () => {
+                    if (state.gameState === 'return') {
+                        const needed = state.tributeQueue.filter(d => d.to === 0).length;
+                        if (isSelected) {
+                            state.selectedIds = state.selectedIds.filter(id => id !== card.id);
+                        } else if (state.selectedIds.length < needed) {
+                            state.selectedIds.push(card.id);
+                        }
+                        updateUI();
+                        return;
+                    }
+
+                    if (state.turn !== 0 || state.isLocked) return;
+                    if (isSelected) {
+                        state.selectedIds = state.selectedIds.filter(id => id !== card.id);
+                    } else {
+                        if (state.selectedIds.length < 2) state.selectedIds.push(card.id);
+                    }
+                    updateUI();
+                };
+                container.appendChild(el);
+            });
+
+            state.players.forEach(p => {
+                const wrapper = document.getElementById(`p${p.id}`);
+                if (wrapper) {
+                    wrapper.classList.toggle('active-turn', state.turn === p.id);
+                    wrapper.querySelector('.card-count').innerText = p.hand.length;
+                    const avatar = wrapper.querySelector('.player-avatar');
+                    avatar.innerHTML = p.name[0] + (state.turn === p.id ? '<span class="thinking-dots"></span>' : '');
+                }
+            });
+
+            const actionBtn = document.querySelector('button[onclick="handlePlay()"]');
+            if (actionBtn) {
+                if (state.gameState === 'return') {
+                    const needed = state.tributeQueue.filter(d => d.to === 0).length;
+                    actionBtn.innerText = `还 贡 (${needed})`;
+                } else {
+                    actionBtn.innerText = "出 牌";
+                }
+            }
+
+            document.getElementById('action-bar').classList.toggle('hidden', state.turn !== 0 && state.gameState !== 'return');
+            
+            updateAIDebug();
+        }
+
+        function executeMove(cards) {
+            const player = state.players[state.turn];
+            const mainSuit = SUIT_KEYS[state.mainSuitIndex];
+
+            // 🌟 史诗级强化：绝门追踪系统（AI开始记牌了！）
+            // 每次发完27张牌开局时，清空记牌器
+            if (!state.voids || player.hand.length === 27) {
+                state.voids = {0: [], 1: [], 2: [], 3: []};
+            }
+            if (state.leadMove) {
+                const leadCard = state.leadMove.cards[0];
+                const playCard = cards[0];
+                const leadIsTrump = isTrump(leadCard, mainSuit);
+                const playIsTrump = isTrump(playCard, mainSuit);
+                const leadSuit = leadIsTrump ? 'TRUMP' : leadCard.suit;
+                
+                // 核心判定：如果你跟的牌和首出不同属性，说明你这门绝了！
+                if (leadIsTrump && !playIsTrump) {
+                    if (!state.voids[state.turn].includes('TRUMP')) state.voids[state.turn].push('TRUMP');
+                } else if (!leadIsTrump) {
+                    if (playIsTrump || playCard.suit !== leadCard.suit) {
+                        if (!state.voids[state.turn].includes(leadCard.suit)) state.voids[state.turn].push(leadCard.suit);
+                    }
+                }
+            }
+            // 🌟 记牌结束
+
+            const move = { 
+                playerId: state.turn, 
+                cards: [...cards], 
+                power: (cards.length === 2 && isPair(cards)) ? getCardPower(cards[0], mainSuit) : (cards.length === 1 ? getCardPower(cards[0], mainSuit) : 0), 
+                type: isPair(cards) ? 'pair' : 'single' 
+            };
+
+            const ids = cards.map(c => c.id);
+            player.hand = player.hand.filter(c => !ids.includes(c.id));
+            state.table.push(move);
+            if (!state.leadMove) state.leadMove = move;
+            renderTable();
+            
+            if (state.table.length === 4) setTimeout(resolveRound, 1000);
+            else { state.turn = (state.turn + 3) % 4; updateUI(); processTurn(); }
+        }
+
+        function resolveRound() {
+            let winnerMove = state.table[0];
+            const mainSuit = SUIT_KEYS[state.mainSuitIndex];
+
+            state.table.forEach((m, i) => {
+                if (i === 0) return;
+                const mIsTrump = isTrump(m.cards[0], mainSuit);
+                const wIsTrump = isTrump(winnerMove.cards[0], mainSuit);
+                let mWin = false;
+
+                if (m.type === 'pair' && winnerMove.type !== 'pair') {
+                    const leadSuit = state.table[0].cards[0].suit;
+                    const leadIsTrump = isTrump(state.table[0].cards[0], mainSuit);
+                    if (mIsTrump || m.cards[0].suit === leadSuit) mWin = true;
+                } else if (m.type === winnerMove.type) {
+                    if (mIsTrump && !wIsTrump) mWin = true;
+                    else if (mIsTrump === wIsTrump) {
+                        if (mIsTrump || m.cards[0].suit === winnerMove.cards[0].suit) {
+                            if (m.power > winnerMove.power) mWin = true;
+                        }
+                    }
+                }
+                if (mWin) winnerMove = m;
+            });
+
+            let pts = 0;
+            state.table.forEach(m => {
+                m.cards.forEach(c => {
+                    if (c.rank === 5) pts += 5;
+                    if (c.rank === 10 || c.rank === 'K') pts += 10;
+                });
+            });
+
+            const winnerId = winnerMove.playerId;
+            const scoringTeam = (state.players[state.bankerId].team === 0) ? 1 : 0;
+            if (state.players[winnerId].team === scoringTeam) {
+                const isFinalRound = state.players.every(p => p.hand.length === 0);
+                if (isFinalRound) {
+                    pts *= (winnerMove.type === 'pair' ? 4 : 2);
+                    showMsg("大功告成！最后分值翻倍！");
+                }
+                state.teamScore += pts;
+            }
+
+            showMsg(`${state.players[winnerId].name} 胜出本轮`);
+            state.table = [];
+            state.leadMove = null;
+            state.turn = winnerId;
+            state.isLocked = false;
+
+            const isEnd = state.players.every(p => p.hand.length === 0);
+            if (isEnd) {
+                state.lastScore = state.teamScore;
+                setTimeout(showFinalResult, 1200);
+            } else {
+                updateUI();
+                processTurn();
+            }
+        }
+
+        function handlePlay() {
+            if (state.gameState === 'return') {
+                const myHand = state.players[0].hand;
+                const myCards = myHand.filter(c => state.selectedIds.includes(c.id));
+                const neededCount = state.tributeQueue.filter(d => d.to === 0).length;
+
+                if (myCards.length !== neededCount) {
+                    showMsg(`需还贡 ${neededCount} 张`);
+                    return;
+                }
+
+                const suitInHandCount = {};
+                myHand.forEach(c => suitInHandCount[c.suit] = (suitInHandCount[c.suit] || 0) + 1);
+
+                for (let c of myCards) {
+                    if (suitInHandCount[c.suit] === 1) {
+                        showMsg("不能还绝家牌！");
+                        return;
+                    }
+                }
+
+                if (myCards.length > 1) {
+                    const selectedSuits = new Set(myCards.map(c => c.suit));
+                    const usableSuits = Object.values(suitInHandCount).filter(v => v > 1).length;
+                    if (selectedSuits.size < Math.min(myCards.length, usableSuits)) {
+                        showMsg("请尽量兼顾不同花色");
+                        return;
+                    }
+                }
+
+                myCards.forEach((c, idx) => {
+                    state.players[0].hand = state.players[0].hand.filter(h => h.id !== c.id);
+                    const giverId = state.tributeQueue.filter(d => d.to === 0)[idx].from;
+                    state.players[giverId].hand.push(c);
+                    state.players[giverId].hand = sortHand(state.players[giverId].hand, SUIT_KEYS[state.mainSuitIndex]);
+                });
+
+                state.selectedIds = [];
+                autoReturnAI();
+                return;
+            }
+
+            if (state.selectedIds.length === 0) return;
+            const myCards = state.players[0].hand.filter(c => state.selectedIds.includes(c.id));
+            const mainSuit = SUIT_KEYS[state.mainSuitIndex];
+            
+            if (!state.leadMove) {
+                if (myCards.length === 2 && !isPair(myCards)) { showMsg("首出两张必须是对子"); return; }
+                if (myCards.length > 2) { showMsg("一次最多出两张"); return; }
+            } else {
+                if (myCards.length !== state.leadMove.cards.length) { showMsg(`必须出 ${state.leadMove.cards.length} 张牌`); return; }
+                const leadIsTrump = isTrump(state.leadMove.cards[0], mainSuit);
+                const leadIsPair = state.leadMove.type === 'pair';
+                const leadSuit = state.leadMove.cards[0].suit;
+                const sameSuitInHand = state.players[0].hand.filter(c => {
+                    const cT = isTrump(c, mainSuit);
+                    return leadIsTrump ? cT : (c.suit === leadSuit && !cT);
+                });
+                
+                if (leadIsPair) {
+                    if (leadIsTrump) {
+                        const hasTrumpPair = sameSuitInHand.some((c,idx,arr) => idx < arr.length-1 && c.rank === arr[idx+1].rank && c.suit === arr[idx+1].suit);
+                        if (hasTrumpPair) {
+                            if (!isPair(myCards) || !isTrump(myCards[0], mainSuit)) {
+                                showMsg("主牌对子：必须出主牌对子");
+                                return;
+                            }
+                        } else if (sameSuitInHand.length >= 2) {
+                            if (myCards.length !== 2 || !myCards.every(c => isTrump(c, mainSuit))) {
+                                showMsg("主牌对子：必须出2张主牌");
+                                return;
+                            }
+                        } else {
+                            if (myCards.length !== 2) {
+                                showMsg("主牌对子：必须出2张牌");
+                                return;
+                            }
+                        }
+                    } else {
+                        if (myCards.length !== 2) {
+                            showMsg("副牌对子：必须出2张牌");
+                            return;
+                        }
+                        
+                        if (sameSuitInHand.length > 0) {
+                            const sameSuitCount = myCards.filter(c => c.suit === leadSuit && !isTrump(c, mainSuit)).length;
+                            if (sameSuitCount < Math.min(sameSuitInHand.length, 2)) {
+                                showMsg("副牌对子：必须先出同花色牌");
+                                return;
+                            }
+                        }
+                    }
+                }
+                
+                if (sameSuitInHand.length > 0) {
+                    const match = myCards.filter(c => isTrump(c, mainSuit) === leadIsTrump && (leadIsTrump || c.suit === leadSuit)).length;
+                    if (match < Math.min(sameSuitInHand.length, state.leadMove.cards.length)) { showMsg("必须先出相同花色的牌"); return; }
+                }
+            }
+            executeMove(myCards);
+            state.selectedIds = [];
+        }
+
+        function renderTable() {
+            const posMap = { 0: 'p0', 1: 'p1', 2: 'p2', 3: 'p3' };
+            state.players.forEach(p => document.getElementById(`table-${posMap[p.id]}`).innerHTML = '');
+            state.table.forEach(m => {
+                const container = document.getElementById(`table-${posMap[m.playerId]}`);
+                m.cards.forEach(c => {
+                    let s = (c.rank==='大王')?SUITS.JOKER_BIG:((c.rank==='小王')?SUITS.JOKER_SMALL:SUITS[c.suit]);
+                    const el = document.createElement('div');
+                    el.className = "w-12 h-16 bg-white rounded shadow-md border border-gray-200 flex flex-col items-center justify-center p-1 text-xs";
+                    el.innerHTML = `<span class="${s.c} font-black">${c.rank==='大王'||c.rank==='小王'?'Joker':c.rank}</span><span class="${s.c}">${s.s}</span>`;
+                    container.appendChild(el);
+                });
+            });
+        }
+
+        function clearSelection() { state.selectedIds = []; updateUI(); }
+
+        function showFinalResult() {
+            const score = state.teamScore;
+            const isWin = score >= 85;
+            document.getElementById('modal-title').innerText = isWin ? "积分队胜利！" : "庄家队获胜！";
+            document.getElementById('modal-desc').innerHTML = `本局积分队最终得分：<span class="text-3xl text-yellow-500">${score}</span><br/><br/><span class="text-emerald-300">按规则即将换庄并根据此分值计算进贡！</span>`;
+            document.getElementById('modal-btn').innerText = "进入下一局";
+            document.getElementById('modal-btn').onclick = () => initGame();
+            document.getElementById('overlay').classList.remove('hidden');
+        }
+
+        function confirmReset() { if (confirm("重新开始吗？")) location.reload(); }
+        window.onresize = updateUI;
+    </script>
+</body>
+</html>
