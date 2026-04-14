@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>世界大富翁 - 全球联机版</title>
+    <title>世界大富翁 - 全球联机版 (奢华岛屿DLC)</title>
     <style>
         :root {
             --primary: #f59e0b;      
@@ -89,25 +89,34 @@
             border: 2px solid rgba(255,255,255,0.08);
         }
         
-        .center-logo {
-            grid-column: 2 / 11; grid-row: 2 / 11; display: flex; flex-direction: column; justify-content: center; align-items: center;
-            background: radial-gradient(circle at center, rgba(15, 23, 42, 0.4), #0b1120 70%), repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(255,255,255,0.02) 39px, rgba(255,255,255,0.02) 40px), repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(255,255,255,0.02) 39px, rgba(255,255,255,0.02) 40px);
-            border-radius: 12px; margin: 10px; border: 1px solid rgba(255,255,255,0.03); pointer-events: none;
+        /* 🔥 新增：海洋内圈背景 🔥 */
+        .ocean-bg {
+            grid-column: 2 / 11; grid-row: 2 / 11;
+            background: radial-gradient(circle at center, #0284c7, #082f49);
+            border-radius: 12px; pointer-events: none; opacity: 0.65;
+            box-shadow: inset 0 0 50px rgba(0,0,0,0.8); border: 2px dashed rgba(255,255,255,0.05);
+            z-index: 0;
         }
-        .center-logo h1 { font-size: 4.5rem; color: #fff; margin: 0; text-transform: uppercase; letter-spacing: 8px; transform: rotate(-35deg); text-shadow: 0 0 30px rgba(255,255,255,0.2), 0 5px 15px rgba(0,0,0,0.8); }
-        .center-logo p { font-size: 1.8rem; font-weight: bold; transform: rotate(-35deg); margin-top: -5px; color: var(--primary); letter-spacing: 6px; text-shadow: 0 0 20px rgba(245, 158, 11, 0.4); }
+
+        /* 🔥 更新：中心Logo缩小以适应内圈 🔥 */
+        .center-logo {
+            grid-column: 4 / 9; grid-row: 4 / 9; display: flex; flex-direction: column; justify-content: center; align-items: center;
+            background: radial-gradient(circle at center, rgba(15, 23, 42, 0.4), #0b1120 70%), repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(255,255,255,0.02) 39px, rgba(255,255,255,0.02) 40px), repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(255,255,255,0.02) 39px, rgba(255,255,255,0.02) 40px);
+            border-radius: 12px; margin: 10px; border: 1px solid rgba(255,255,255,0.03); pointer-events: none; z-index: 1;
+        }
+        .center-logo h1 { font-size: 2.8rem; color: #fff; margin: 0; text-transform: uppercase; letter-spacing: 6px; transform: rotate(-35deg); text-shadow: 0 0 30px rgba(255,255,255,0.2), 0 5px 15px rgba(0,0,0,0.8); }
+        .center-logo p { font-size: 1.2rem; font-weight: bold; transform: rotate(-35deg); margin-top: -5px; color: var(--primary); letter-spacing: 4px; text-shadow: 0 0 20px rgba(245, 158, 11, 0.4); }
 
         .cell {
             background: linear-gradient(145deg, #1e293b, #111827); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px;
             display: flex; flex-direction: column; justify-content: center; align-items: center;
             position: relative; text-align: center; overflow: hidden; color: #f8fafc;
-            box-shadow: inset 0 1px 1px rgba(255,255,255,0.1), 0 4px 6px rgba(0,0,0,0.3); transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: inset 0 1px 1px rgba(255,255,255,0.1), 0 4px 6px rgba(0,0,0,0.3); transition: transform 0.2s, box-shadow 0.2s; z-index: 2;
         }
         
-        /* 🔥 FIX 1: 优化顶部颜色条和房子图标显示 🔥 */
         .color-bar { 
             position: absolute; top: 0; left: 0; right: 0; 
-            height: 24px; /* 加宽颜色条以便放下房子 */
+            height: 24px; 
             background: var(--cell-color, transparent); 
             box-shadow: 0 2px 10px rgba(0,0,0,0.5); 
             display: flex; justify-content: center; align-items: center; gap: 3px;
@@ -116,11 +125,11 @@
         }
         .cell-content { 
             flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; 
-            padding: 26px 4px 4px 4px; /* 增加顶部内边距，防止文字和颜色条重叠 */
+            padding: 26px 4px 4px 4px; 
             font-size: 0.72rem; font-weight: 700; gap: 4px; z-index: 2;
         }
         .house-icon { 
-            font-size: 14px; /* 放大房子图标 */
+            font-size: 14px; 
             line-height: 1; 
             text-shadow: 0 0 5px rgba(255,255,255,0.9); 
             position: static; margin: 0; 
@@ -134,6 +143,14 @@
         .cell.fate { background: linear-gradient(145deg, #713f12, #422006); color: #fde047; }
         .cell.jail { background: linear-gradient(145deg, #475569, #1e293b); }
         .cell.airport { background: linear-gradient(145deg, #1e293b, #0f172a); }
+
+        /* 🔥 新增：内圈特殊格子样式 🔥 */
+        .cell.chance_premium { background: linear-gradient(145deg, #0c4a6e, #082f49); color: #38bdf8; border-color: #38bdf8; box-shadow: 0 0 10px rgba(56, 189, 248, 0.4); }
+        .cell.fate_premium { background: linear-gradient(145deg, #713f12, #422006); color: #fde047; border-color: #fde047; box-shadow: 0 0 10px rgba(253, 224, 71, 0.4); }
+        .cell.port { background: linear-gradient(145deg, #0284c7, #082f49); border-color: #38bdf8; }
+        .cell.hotel { background: linear-gradient(145deg, #fbbf24, #b45309); color: #fff; }
+        .cell.golf { background: linear-gradient(145deg, #10b981, #047857); }
+        .cell.bank { background: linear-gradient(145deg, #cbd5e1, #475569); color: #fff; border-color: #fff; }
 
         .mortgage-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.75); display: flex; justify-content: center; align-items: center; font-size: 1.5rem; z-index: 6; pointer-events: none; opacity: 0; transition: opacity 0.3s; backdrop-filter: grayscale(1); }
         .cell.is-mortgaged .mortgage-overlay { opacity: 1; }
@@ -282,6 +299,7 @@
 
     <div id="game-container">
         <div class="board" id="board">
+            <div class="ocean-bg"></div>
             <div class="center-logo">
                 <h1>Monopoly</h1>
                 <p>GLOBAL FINANCE</p>
@@ -358,11 +376,13 @@
         let isHost = false;
         let unsubscribeSnapshot = null;
 
+        // 🔥 新增：内圈颜色 🔥
         const COLORS = {
             brown: "#b45309", lblue: "#0284c7", pink: "#db2777", orange: "#ea580c",
-            red: "#dc2626", yellow: "#ca8a04", green: "#16a34a", blue: "#2563eb", airport: "#64748b"
+            red: "#dc2626", yellow: "#ca8a04", green: "#16a34a", blue: "#2563eb", airport: "#64748b",
+            inner1: "#eab308", inner2: "#22c55e", inner3: "#06b6d4" 
         };
-        const AIRPORT_RENTS = [0, 100, 200, 400, 800]; 
+        const AIRPORT_RENTS = [0, 100, 200, 400, 800, 1500, 2500]; 
         const PLAYER_COLORS = ["#f59e0b", "#3b82f6", "#10b981", "#ec4899", "#8b5cf6", "#06b6d4"];
         const INITIAL_MONEY = 2000;
         const INTEREST_RATE = 0.03; 
@@ -373,17 +393,21 @@
         let isGameOver = false;
         let gameLogs = [];
 
+        // 🔥 新增：统一可购买资产判断 🔥
+        const isBuyable = (c) => ['property', 'airport', 'hotel', 'golf'].includes(c.type);
+
         function resetData() {
             CITIES = [
+                // === 外圈 (0-39) ===
                 { name: "起点 (领$200)", type: "start" }, 
                 { name: "台北", type: "property", color: COLORS.brown, price: 220, upgPrice: 50, rents: [5, 25, 75, 225, 400] },
-                { name: "机会", type: "chance" },
+                { name: "维多利亚港", type: "port" },
                 { name: "雅加达", type: "property", color: COLORS.brown, price: 220, upgPrice: 50, rents: [10, 50, 150, 400, 550] },
                 { name: "命运", type: "fate" },
                 { name: "虹桥机场", type: "airport", color: COLORS.airport, price: 600 }, 
                 { name: "吉隆坡", type: "property", color: COLORS.lblue, price: 300, upgPrice: 100, rents: [15, 60, 180, 500, 700] },
                 { name: "新加坡", type: "property", color: COLORS.lblue, price: 300, upgPrice: 100, rents: [15, 60, 180, 500, 700] },
-                { name: "机会", type: "chance" },
+                { name: "机会", type: "chance" }, // 🔥 替换了原来的“机会” 🔥
                 { name: "曼谷", type: "property", color: COLORS.lblue, price: 380, upgPrice: 100, rents: [20, 80, 220, 600, 800] },
                 { name: "监狱探访", type: "jail" }, 
                 { name: "首尔", type: "property", color: COLORS.pink, price: 400, upgPrice: 150, rents: [25, 100, 300, 750, 950] },
@@ -397,9 +421,9 @@
                 { name: "慕尼黑", type: "property", color: COLORS.orange, price: 650, upgPrice: 200, rents: [40, 180, 500, 1100, 1300] },
                 { name: "免费停车", type: "parking" }, 
                 { name: "莫斯科", type: "property", color: COLORS.red, price: 700, upgPrice: 250, rents: [45, 200, 550, 1200, 1400] },
-                { name: "机会", type: "chance" },
+                { name: "鹿特丹港", type: "port" }, // 🔥 替换了原来的“机会” 🔥
                 { name: "巴黎", type: "property", color: COLORS.red, price: 700, upgPrice: 250, rents: [45, 200, 550, 1200, 1400] },
-                { name: "命运", type: "fate" },
+                { name: "机会", type: "chance" },
                 { name: "希思罗机场", type: "airport", color: COLORS.airport, price: 800 }, 
                 { name: "伦敦", type: "property", color: COLORS.red, price: 850, upgPrice: 250, rents: [50, 220, 600, 1300, 1500] },
                 { name: "柏林", type: "property", color: COLORS.yellow, price: 900, upgPrice: 300, rents: [55, 250, 700, 1400, 1700] },
@@ -414,7 +438,34 @@
                 { name: "芝加哥", type: "property", color: COLORS.green, price: 1250, upgPrice: 400, rents: [70, 350, 950, 1700, 2000] },
                 { name: "纽约", type: "property", color: COLORS.green, price: 1400, upgPrice: 400, rents: [80, 400, 1100, 1900, 2200] },
                 { name: "命运", type: "fate" },
-                { name: "北京", type: "property", color: COLORS.blue, price: 1400, upgPrice: 500, rents: [100, 500, 1400, 2500, 3000] } 
+                { name: "北京", type: "property", color: COLORS.blue, price: 1400, upgPrice: 500, rents: [100, 500, 1400, 2500, 3000] },
+                
+                // === 🔥 新增：内圈 (岛区 40-63) 🔥 ===
+                // === 内圈 (岛区 40-63) ===
+                { name: "直布罗陀码头", type: "port" }, // 40
+                { name: "维京群岛", type: "property", color: COLORS.inner1, price: 2000, upgPrice: 800, rents: [150, 700, 2000, 4000, 6000] },
+                { name: "至尊机会", type: "chance_premium" },
+                { name: "夏威夷", type: "property", color: COLORS.inner1, price: 2500, upgPrice: 800, rents: [200, 850, 2400, 4500, 7000] },
+                { name: "高盛投行", type: "bank", reward: 200 },
+                { name: "皇家高尔夫", type: "golf", price: 5000, upgPrice: 0, rents: [700] },
+                { name: "拉奈机场", type: "airport", color: COLORS.airport, price: 1500 },
+                { name: "马达加斯加", type: "property", color: COLORS.inner2, price: 3000, upgPrice: 1000, rents: [250, 1000, 3000, 5500, 8000] },
+                { name: "半岛酒店", type: "hotel", price: 4000, profit: 50, upgPrice: 0, rents: [200] },
+                { name: "深渊命运", type: "fate_premium" },
+                { name: "开曼群岛", type: "property", color: COLORS.inner2, price: 3500, upgPrice: 1000, rents: [300, 1200, 3500, 6500, 9000] },
+                { name: "摩根士丹利", type: "bank", reward: 300 },
+                { name: "檀香山码头", type: "port" }, // 52
+                { name: "塞舌尔群岛", type: "property", color: COLORS.inner3, price: 4000, upgPrice: 1200, rents: [350, 1400, 4000, 7500, 10000] },
+                { name: "至尊机会", type: "chance_premium" },
+                { name: "大溪地", type: "property", color: COLORS.inner3, price: 4500, upgPrice: 1200, rents: [400, 1600, 4500, 8500, 11000] },
+                { name: "帆船酒店", type: "hotel", price: 5000, profit: 75, upgPrice: 0, rents: [250] },
+                { name: "大师高尔夫", type: "golf", price: 6500, upgPrice: 0, rents: [1000] },
+                { name: "维拉纳机场", type: "airport", color: COLORS.airport, price: 2000 },
+                { name: "圣托里尼", type: "property", color: COLORS.red, price: 5000, upgPrice: 1500, rents: [500, 2000, 5500, 10000, 14000] },
+                { name: "深渊命运", type: "fate_premium" },
+                { name: "马尔代夫", type: "property", color: COLORS.red, price: 5500, upgPrice: 1500, rents: [550, 2200, 6000, 11000, 16000] },
+                { name: "瑞银集团", type: "bank", reward: 400 },
+                { name: "亚特兰蒂斯", type: "property", color: COLORS.red, price: 6500, upgPrice: 2000, rents: [700, 2800, 8000, 15000, 20000] }
             ];
             CITIES.forEach((c, idx) => { c.ownerId = null; c.level = 0; c.idx = idx; c.isMortgaged = false; c.loanAmount = 0; });
         }
@@ -432,11 +483,22 @@
             { text: "股票分红，收益 $50", action: async (p) => p.money += 50 },
             { text: "基金暴涨，获利 $150", action: async (p) => p.money += 150 },
             { text: "私人飞机延误，退后 3 格", action: async (p) => {
-                p.pos = (p.pos - 3 + CITIES.length) % CITIES.length;
+                let len = p.pos < 40 ? 40 : 24;
+                let base = p.pos < 40 ? 0 : 40;
+                p.pos = base + (p.pos - base - 3 + len) % len;
                 updateTokens(); await handleLand(p); return 'SKIP_END';
             }},
-            { text: "直飞虹桥机场 (不计起点奖励)", action: async (p) => {
-                p.pos = 5; updateTokens(); await handleLand(p); return 'SKIP_END';
+            // 🔥 新增：自动获取全图机场（含岛区）并随机降落 🔥
+            { text: "✈️ 专机调度！立刻乘搭私人飞机，随机降落至全球任一航空枢纽！", action: async (p) => {
+                let airports = CITIES.filter(c => c.type === 'airport');
+                let target = airports[Math.floor(Math.random() * airports.length)];
+                p.pos = target.idx; 
+                addLog(`✈️ ${p.name} 的专机降落在 [${target.name}]`);
+                updateTokens(); await handleLand(p); return 'SKIP_END';
+            }},
+            // 🔥 更新：送往拉奈机场 (外圈玩家可借此强行入岛) 🔥
+            { text: "🚢 锦鲤附体！抽中豪华游轮内岛七日游，免票直飞【拉奈机场】！", action: async (p) => { 
+                p.pos = 46; updateTokens(); await handleLand(p); return 'SKIP_END'; 
             }}
         ];
 
@@ -452,7 +514,34 @@
             }},
             { text: "海外账户被短暂冻结，损失 $180", action: async (p) => await deductMoney(p, 180) },
             { text: "继承远房亲戚遗产，获得 $400", action: async (p) => p.money += 400 },
-            { text: "高昂的私人医疗账单，支付 $100", action: async (p) => await deductMoney(p, 100) }
+            { text: "高昂的私人医疗账单，支付 $100", action: async (p) => await deductMoney(p, 100) },
+            // 🔥 命运卡同样加入随机机场调度 🔥
+            { text: "✈️ 紧急航班！因跨国业务需要，立刻乘机飞往全球随机任一机场！", action: async (p) => {
+                let airports = CITIES.filter(c => c.type === 'airport');
+                let target = airports[Math.floor(Math.random() * airports.length)];
+                p.pos = target.idx; 
+                addLog(`✈️ ${p.name} 紧急飞往 [${target.name}]`);
+                updateTokens(); await handleLand(p); return 'SKIP_END';
+            }},
+            // 🔥 更新：强行委派到维拉纳机场 🔥
+            { text: "💼 集团战略转移！被强制委派开拓海外高端市场，立即空降【维拉纳机场】！", action: async (p) => { 
+                p.pos = 58; updateTokens(); await handleLand(p); return 'SKIP_END'; 
+            }}
+        ];
+
+        // 🔥 新增：内圈至尊卡牌 🔥
+        const PREMIUM_CHANCE = [
+            { text: "✨ 全球免签！直接包机飞往内圈黄金港口！", action: async (p) => { p.pos = 40; updateTokens(); await handleLand(p); return 'SKIP_END'; } },
+            { text: "💸 离岸避税天堂，资产暴增，获得 $1500", action: async (p) => p.money += 1500 },
+            { text: "🎫 国际建工巨头赞助：免费顶级扩建一次！", action: async (p) => { p.freeHouse = true; } },
+            { text: "🎰 豪华游轮赌场豪赌连胜，获得 $1000", action: async (p) => p.money += 1000 }
+        ];
+
+        const PREMIUM_FATE = [
+            { text: "🌪️ 超级飓风袭击岛屿，支付维修费 $1000", action: async (p) => await deductMoney(p, 1000) },
+            { text: "📉 跨国垄断被查，缴纳巨额罚单 $2000", action: async (p) => await deductMoney(p, 2000) },
+            { text: "🚨 商业间谍暴露！立即引渡送往大监狱！", action: async (p) => { p.pos = 10; updateTokens(); } },
+            { text: "🏴‍☠️ 遭遇海盗游艇劫持，破财免灾 $800", action: async (p) => await deductMoney(p, 800) }
         ];
 
         function showLoading(text) { document.getElementById('loading-text').innerText = text; document.getElementById('loading-overlay').style.display = 'flex'; }
@@ -462,14 +551,22 @@
         function getTotalPropertyValue(city) { return city.price + (city.level * (city.upgPrice || 0)); }
         function getSellValue(city) { return Math.floor(getTotalPropertyValue(city) * 0.65); }
         function getMortgageValue(city) { return Math.floor(getTotalPropertyValue(city) * 0.45); }
+        
+        // 🔥 更新：重写栅格坐标映射以支持 7x7 岛屿内圈 🔥
         function getGridStyle(i) {
+            // 外圈 11x11 (0-39)
             if (i <= 10) return `grid-column: ${11 - i}; grid-row: 11;`;
             if (i <= 20) return `grid-column: 1; grid-row: ${21 - i};`;
             if (i <= 30) return `grid-column: ${i - 19}; grid-row: 1;`;
             if (i <= 39) return `grid-column: 11; grid-row: ${i - 29};`;
+            
+            // 内圈 7x7 (40-63) -> 占用 grid line 3 到 9
+            if (i <= 46) return `grid-column: ${9 - (i - 40)}; grid-row: 9;`;
+            if (i <= 51) return `grid-column: 3; grid-row: ${8 - (i - 47)};`;
+            if (i <= 58) return `grid-column: ${i - 52 + 3}; grid-row: 3;`;
+            if (i <= 63) return `grid-column: 9; grid-row: ${i - 59 + 4};`;
         }
 
-        // 🔥 FIX 2: 增强同步的健壮性，防止单字段覆盖引起报错 🔥
         async function syncState() {
             if (!isOnline || !onlineRoomId) return;
             try {
@@ -512,9 +609,6 @@
             triggerTurn();
         }
 
-        // ==========================================
-        // 🔥 核心重写：完全拆除对 onAuthStateChanged 的依赖阻塞 🔥
-        // ==========================================
         window.joinOnlineRoom = async function() {
             if (!auth || !db) {
                 alert("⛔ 网络服务尚未配置成功！\n请确保在代码顶部的 firebaseConfig 中填入您自己的真实 Firebase 配置。");
@@ -528,7 +622,6 @@
 
             showLoading("正在连接云端节点...");
 
-            // 1. 生成一个保底的游客身份 UID
             let userUid = "guest-" + Math.random().toString(36).substr(2, 9); 
 
             try {
@@ -542,12 +635,10 @@
                 }
             } catch(e) { 
                 console.warn("身份验证被拦截，正在强行降级为直连模式...", e);
-                // 关键点：这里不再报错返回，而是默默吞下错误，强行用 guest 身份往下走
             }
 
             myUid = userUid;
 
-            // 2. 原本由于等不到 onAuthStateChanged 而卡住的房间逻辑，现在直接无条件执行
             try {
                 showLoading("正在验证服务器并获取房间数据...");
                 const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', rid);
@@ -586,7 +677,6 @@
 
                 hideLoading();
 
-                // 监听房间状态变化
                 if (unsubscribeSnapshot) unsubscribeSnapshot();
                 unsubscribeSnapshot = onSnapshot(roomRef, (doc) => {
                     if (!doc.exists()) return;
@@ -606,10 +696,12 @@
                         if(CITIES.length === 0) resetData();
                         if (d.cities && d.cities.length > 0) {
                             d.cities.forEach((c, idx) => {
-                                CITIES[idx].ownerId = c.ownerId;
-                                CITIES[idx].level = c.level;
-                                CITIES[idx].isMortgaged = c.isMortgaged;
-                                CITIES[idx].loanAmount = c.loanAmount;
+                                if (CITIES[idx]) {
+                                    CITIES[idx].ownerId = c.ownerId;
+                                    CITIES[idx].level = c.level;
+                                    CITIES[idx].isMortgaged = c.isMortgaged;
+                                    CITIES[idx].loanAmount = c.loanAmount;
+                                }
                             });
                         }
                         currentPlayerIdx = d.currentPlayerIdx;
@@ -635,9 +727,6 @@
                 alert("⛔ 数据库连接失败！\n\n如果一直提示这个错误，请确保您的 Firebase 数据库规则 (Rules) 已修改为:\nallow read, write: if true;");
             }
         }
-        // ==========================================
-        // 🔥 网络逻辑修改结束 🔥
-        // ==========================================
 
         window.startOnlineGame = async function() {
             if (!isHost) return;
@@ -651,6 +740,7 @@
             }, { merge: true });
         }
 
+        // 🔥 更新：初始化面板，支持新类型图标 🔥
         function initBoard() {
             const boardEl = document.getElementById('board');
             document.querySelectorAll('.cell').forEach(e => e.remove());
@@ -663,8 +753,12 @@
                 cell.style = `--cell-color: ${city.color || 'transparent'}; ${getGridStyle(i)}`;
                 
                 let contentHTML = '';
-                if (city.type === 'property' || city.type === 'airport') {
-                    const icon = city.type === 'airport' ? '✈️' : '';
+                if (isBuyable(city)) {
+                    let icon = '';
+                    if (city.type === 'airport') icon = '✈️';
+                    else if (city.type === 'hotel') icon = '🏨';
+                    else if (city.type === 'golf') icon = '⛳';
+
                     contentHTML = `
                         <div class="color-bar" id="colorbar-${i}"></div>
                         <div class="cell-content">
@@ -675,8 +769,12 @@
                         <div class="mortgage-overlay" id="mortgage-${i}">🔒</div>
                         <div class="owner-border" id="ownerborder-${i}"></div>
                     `;
+                } else if (city.type === 'port') {
+                    contentHTML = `<div class="cell-content"><div style="font-size:1.5rem; margin-bottom:5px;">🚢</div><div style="font-size: 0.85rem;">${city.name}</div></div>`;
+                } else if (city.type === 'bank') {
+                    contentHTML = `<div class="cell-content"><div style="font-size:1.5rem; margin-bottom:5px;">🏛️</div><div style="font-size: 0.85rem;">${city.name}</div></div>`;
                 } else {
-                    const specialIcons = { 'start': '🚀', 'jail': '⛓️', 'tojail': '🚔', 'chance': '🎁', 'fate': '🔮', 'parking': '🅿️' };
+                    const specialIcons = { 'start': '🚀', 'jail': '⛓️', 'tojail': '🚔', 'chance': '🎁', 'chance_premium': '👑', 'fate': '🔮', 'fate_premium': '🌋', 'parking': '🅿️' };
                     contentHTML = `<div class="cell-content"><div style="font-size:1.5rem; margin-bottom:5px;">${specialIcons[city.type] || ''}</div><div style="font-size: 0.85rem;">${city.name}</div></div>`;
                 }
                 cell.innerHTML = contentHTML; boardEl.appendChild(cell);
@@ -703,7 +801,7 @@
 
         function updateBoardVisuals() {
             CITIES.forEach((city, i) => {
-                if((city.type === 'property' || city.type === 'airport')) {
+                if (isBuyable(city)) {
                     const cellEl = document.getElementById(`cell-${i}`);
                     const owner = getOwner(city);
                     if (owner) {
@@ -792,6 +890,17 @@
             
             if (isMyTurn() || (!isOnline && player.isAI) || (isOnline && isHost && player.isAI)) {
                 await processInterest(player);
+                
+                // 🔥 新增：内圈酒店每回合自动结算利润 🔥
+                if (!player.isBankrupt) {
+                    const hotels = CITIES.filter(c => c.ownerId === player.id && c.type === 'hotel' && !c.isMortgaged);
+                    let profit = hotels.reduce((sum, h) => sum + h.profit, 0);
+                    if (profit > 0) {
+                        player.money += profit;
+                        addLog(`🏨 ${player.name} 名下高端酒店产出利润: +$${profit}`, 'success');
+                    }
+                }
+
                 if (player.isBankrupt) { nextTurn(); return; } 
                 if(isOnline) syncState();
             }
@@ -808,16 +917,19 @@
             const player = players[currentPlayerIdx];
             addLog(`${player.name} 投掷出 ${die} 点 🎲`);
 
+            // 🔥 更新：内外圈双轨移动逻辑 🔥
             for (let i = 0; i < die; i++) {
-                player.pos = (player.pos + 1) % CITIES.length;
-                if (player.pos === 0) {
-                    player.money += 200;
-                    addLog(`${player.name} 经过起点，获得 $200`, 'success');
-                    renderPlayersInfo();
+                if (player.pos <= 39) {
+                    player.pos++;
+                    if (player.pos > 39) { player.pos = 0; player.money += 200; addLog(`${player.name} 经过外圈起点，获得 $200`, 'success'); renderPlayersInfo(); }
+                } else {
+                    player.pos++;
+                    if (player.pos > 63) { player.pos = 40; player.money += 100; addLog(`${player.name} 环游内圈群岛一周，获得特别注资 $100`, 'success'); renderPlayersInfo(); }
                 }
                 updateTokens();
                 await new Promise(r => setTimeout(r, 150));
             }
+            
             if(isOnline) syncState();
             await handleLand(player);
         }
@@ -829,15 +941,42 @@
             const city = CITIES[player.pos];
             addLog(`${player.name} 抵达 [${city.name}]`);
 
-            if (city.type === 'property') {
+            // 🔥 新增：内圈外圈互通逻辑与打卡点 🔥
+            // 🔥 更新：港口变为强制且免费的传送门 🔥
+            if (city.type === 'port') {
+                const destMap = { 2: 40, 22: 52, 40: 2, 52: 22 }; 
+                const destIdx = destMap[city.idx]; 
+                const destCity = CITIES[destIdx];
+                
+                if (!player.isAI) {
+                    await askActionModal("🚢 跨海航线", `港口调度要求：必须登船！\n即将免费搭乘游轮前往 [${destCity.name}]。`, [
+                        { text: "立刻启航 🌊", value: true, class: "btn-action" }
+                    ]);
+                }
+                
+                player.pos = destIdx; 
+                addLog(`🚢 ${player.name} 搭乘免费班轮强制前往 ${destCity.name}`, 'warning'); 
+                updateTokens(); 
+            // 接下来的 else if (city.type === 'bank') { ... } 保持不变
+            } else if (city.type === 'bank') {
+                player.money += city.reward; 
+                addLog(`🏛️ ${player.name} 获得 [${city.name}] 的红利发放：+$${city.reward}`, 'success');
+            } else if (isBuyable(city)) { // 🔥 涵盖了 Hotel 和 Golf 🔥
                 if (city.ownerId !== null) {
                     if (city.ownerId !== player.id) {
-                        const rent = city.rents[city.level];
+                        let rent = 0;
+                        if (city.type === 'airport') {
+                            rent = AIRPORT_RENTS[CITIES.filter(c => c.type === 'airport' && c.ownerId === city.ownerId).length];
+                        } else if (city.type === 'property') {
+                            rent = city.rents[city.level];
+                        } else {
+                            rent = city.rents[0]; // Hotel or Golf
+                        }
                         const owner = getOwner(city);
-                        addLog(`${player.name} 进入 ${owner.name} 的地盘，支付租金 $${rent}`, 'warning');
+                        addLog(`${player.name} 进入 ${owner.name} 的地盘，支付费 $${rent}`, 'warning');
                         await deductMoney(player, rent, owner);
                     } else {
-                        if (city.level < 4) {
+                        if (city.type === 'property' && city.level < 4) {
                             const cost = player.freeHouse ? 0 : city.upgPrice;
                             if (player.isAI) {
                                 if (player.freeHouse || player.money > cost + 200) { upgradeProperty(player, city, cost); player.freeHouse = false; }
@@ -851,6 +990,23 @@
                                     else addLog("现金流不足，无法进行扩建！", "danger");
                                 }
                             }
+                        } else if (city.type === 'airport') {
+                            const myAirports = CITIES.filter(c => c.type === 'airport' && c.ownerId === player.id && c.idx !== player.pos);
+                            if (myAirports.length > 0) {
+                                if (!player.isAI) {
+                                    let actions = myAirports.map(a => ({ text: `🛫 飞往 ${a.name}`, value: a.idx, class: "btn-action" }));
+                                    actions.push({ text: "不调动专机", value: false, class: "btn-action secondary" });
+                                    const targetIdx = await askActionModal("✈️ 私人航线", "调动私人飞机转移？", actions);
+                                    if (targetIdx !== false) {
+                                        addLog(`${player.name} 飞往 ${CITIES[targetIdx].name}`, 'success');
+                                        player.pos = targetIdx; updateTokens();
+                                    }
+                                } else if (Math.random() > 0.5) {
+                                    const target = myAirports[Math.floor(Math.random() * myAirports.length)];
+                                    addLog(`${player.name} 飞往 ${target.name}`, 'success');
+                                    player.pos = target.idx; updateTokens();
+                                }
+                            }
                         }
                     }
                 } else {
@@ -859,54 +1015,22 @@
                     } else {
                         const action = await askActionModal("并购资产", getBuyHTML(city), [
                             { text: `💰 花费 $${city.price} 并购`, value: true, class: "btn-action" },
-                            { text: "放弃并购", value: false, class: "btn-action secondary" }
-                        ]);
-                        if (action && player.money >= city.price) buyProperty(player, city);
-                    }
-                }
-            } else if (city.type === 'airport') {
-                if (city.ownerId !== null) {
-                    const owner = getOwner(city);
-                    if (city.ownerId !== player.id) {
-                        const ownedCount = CITIES.filter(c => c.type === 'airport' && c.ownerId === owner.id).length;
-                        const rent = AIRPORT_RENTS[ownedCount];
-                        addLog(`${player.name} 使用 ${owner.name} 的航空网络，支付费 $${rent}`, 'warning');
-                        await deductMoney(player, rent, owner);
-                    } else if (city.ownerId === player.id) {
-                        const myAirports = CITIES.filter(c => c.type === 'airport' && c.ownerId === player.id && c.idx !== player.pos);
-                        if (myAirports.length > 0) {
-                            if (!player.isAI) {
-                                let actions = myAirports.map(a => ({ text: `🛫 飞往 ${a.name}`, value: a.idx, class: "btn-action" }));
-                                actions.push({ text: "不调动专机", value: false, class: "btn-action secondary" });
-                                const targetIdx = await askActionModal("✈️ 私人航线", "调动私人飞机转移？", actions);
-                                if (targetIdx !== false) {
-                                    addLog(`${player.name} 飞往 ${CITIES[targetIdx].name}`, 'success');
-                                    player.pos = targetIdx; updateTokens();
-                                }
-                            } else if (Math.random() > 0.5) {
-                                const target = myAirports[Math.floor(Math.random() * myAirports.length)];
-                                addLog(`${player.name} 飞往 ${target.name}`, 'success');
-                                player.pos = target.idx; updateTokens();
-                            }
-                        }
-                    }
-                } else {
-                    if (player.isAI) {
-                        if (player.money > city.price + 100) buyProperty(player, city);
-                    } else {
-                        const action = await askActionModal("收购航空枢纽", `<div class="prop-card-header" style="background-color: var(--card-bg)">${city.name}</div><div class="prop-card-body"><p style="color:#fff">收购价: <strong>$${city.price}</strong><br><br>枢纽网络收益：<br>持有 1 座: $100<br>持有 2 座: $200<br>持有 3 座: $400<br>持有 4 座: $800</p></div>`, [
-                            { text: `💰 花费 $${city.price} 收购`, value: true, class: "btn-action" },
                             { text: "放弃", value: false, class: "btn-action secondary" }
                         ]);
                         if (action && player.money >= city.price) buyProperty(player, city);
                     }
                 }
-            } else if (city.type === 'chance' || city.type === 'fate') {
-                const deck = city.type === 'chance' ? CHANCE_CARDS : FATE_CARDS;
+            } else if (city.type.includes('chance') || city.type.includes('fate')) {
+                // 🔥 新增：判定是外圈卡池还是内圈至尊卡池 🔥
+                let deck = CHANCE_CARDS;
+                if (city.type === 'fate') deck = FATE_CARDS;
+                else if (city.type === 'chance_premium') deck = PREMIUM_CHANCE;
+                else if (city.type === 'fate_premium') deck = PREMIUM_FATE;
+
                 const card = deck[Math.floor(Math.random() * deck.length)];
                 
                 if (!player.isAI) {
-                    await askActionModal(city.name === 'chance' ? "🎁 市场机遇" : "🔮 命运转折", `<div style="padding: 25px; font-size: 1.25rem; color: #fff; font-weight: bold;">${card.text}</div>`, [{ text: "确认", value: true, class: "btn-action" }]);
+                    await askActionModal(city.type.includes('chance') ? "🎁 市场机遇" : "🔮 命运转折", `<div style="padding: 25px; font-size: 1.25rem; color: #fff; font-weight: bold;">${card.text}</div>`, [{ text: "确认", value: true, class: "btn-action" }]);
                 }
                 
                 addLog(`${player.name} 触发：${card.text}`);
@@ -1036,7 +1160,13 @@
                     let listHTML = assets.length === 0 ? `<p style="color:var(--text-light); text-align:center; padding:20px;">旗下无核心资产。</p>` : 
                         assets.map(c => {
                             const isM = c.isMortgaged;
-                            const levelDesc = c.type === 'airport' ? '航空枢纽' : (c.level === 4 ? '顶级旅馆' : `${c.level}栋商厦`);
+                            // 🔥 修复：增加对 Hotel 和 Golf 的类型描述 🔥
+                            let levelDesc = '';
+                            if(c.type === 'airport') levelDesc = '航空枢纽';
+                            else if(c.type === 'hotel') levelDesc = '高端酒店';
+                            else if(c.type === 'golf') levelDesc = '高尔夫球场';
+                            else levelDesc = (c.level === 4 ? '顶级旅馆' : `${c.level}栋商厦`);
+
                             let buttons = isM ? `<button class="btn-action warning full" style="padding:8px" onclick="executeRedeem(${c.idx})">赎回 ($${c.loanAmount})</button>` : 
                                 `<button class="btn-action warning" style="padding:8px;" onclick="executeMortgage(${c.idx})">抵押得 $${getMortgageValue(c)}</button>
                                  <button class="btn-action danger" style="padding:8px;" onclick="executeSell(${c.idx})">变卖得 $${getSellValue(c)}</button>`;
@@ -1101,16 +1231,24 @@
             if (!manualPlayer && window._renderAssets) window._renderAssets();
         }
 
+        // 🔥 更新：重写收购面板，完美支持 Hotel 和 Golf 🔥
         function getBuyHTML(city) {
-            return `<div class="prop-card-header" style="background-color: ${city.color}">${city.name}</div>
-                <div class="prop-card-body">
-                    <div class="rent-row highlight"><span>基础租金</span><span>$${city.rents[0]}</span></div>
-                    <div class="rent-row"><span>建 1 栋商厦</span><span>$${city.rents[1]}</span></div>
-                    <div class="rent-row"><span>建 2 栋商厦</span><span>$${city.rents[2]}</span></div>
-                    <div class="rent-row"><span>建 3 栋商厦</span><span>$${city.rents[3]}</span></div>
-                    <div class="rent-row"><span>建 顶级旅馆</span><span>$${city.rents[4]}</span></div>
-                    <div class="cost-info"><span>单次扩建成本: <strong style="color:var(--primary)">$${city.upgPrice}</strong></span></div>
-                </div>`;
+            let body = '';
+            if (city.type === 'airport') {
+                body = `<p style="color:#fff">收购价: <strong>$${city.price}</strong><br><br>枢纽网络收益：<br>持有 1 座: $100<br>持有 2 座: $200<br>持有 3 座: $400<br>持有 4 座: $800<br>持有 5 座: $1500<br>持有 6 座: $2500</p>`;
+            } else if (city.type === 'hotel') {
+                body = `<p style="color:#fff;font-size:1.1rem">高端奢华酒店<br><br>收购价: <strong>$${city.price}</strong><br>每回合营业利润: <strong style="color:var(--secondary)">+$${city.profit}</strong><br>单次收取租金: $${city.rents[0]}</p>`;
+            } else if (city.type === 'golf') {
+                body = `<p style="color:#fff;font-size:1.1rem">顶级高尔夫球场<br><br>收购价: <strong>$${city.price}</strong><br>固定会员入场费: <strong style="color:var(--primary)">$${city.rents[0]}</strong></p>`;
+            } else {
+                body = `<div class="rent-row highlight"><span>基础租金</span><span>$${city.rents[0]}</span></div>
+                        <div class="rent-row"><span>建 1 栋商厦</span><span>$${city.rents[1]}</span></div>
+                        <div class="rent-row"><span>建 2 栋商厦</span><span>$${city.rents[2]}</span></div>
+                        <div class="rent-row"><span>建 3 栋商厦</span><span>$${city.rents[3]}</span></div>
+                        <div class="rent-row"><span>建 顶级旅馆</span><span>$${city.rents[4]}</span></div>
+                        <div class="cost-info"><span>单次扩建成本: <strong style="color:var(--primary)">$${city.upgPrice}</strong></span></div>`;
+            }
+            return `<div class="prop-card-header" style="background-color: ${city.color}">${city.name}</div><div class="prop-card-body">${body}</div>`;
         }
 
         function getUpgradeHTML(city, isFree) {
