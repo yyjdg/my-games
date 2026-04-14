@@ -1,0 +1,1144 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>世界大富翁 - 全球联机版</title>
+    <style>
+        :root {
+            --primary: #f59e0b;      
+            --primary-hover: #d97706;
+            --secondary: #10b981;    
+            --danger: #ef4444;       
+            --bg-dark: #090e17;      
+            --panel-bg: rgba(15, 23, 42, 0.7); 
+            --card-bg: #1e293b;
+            --text: #f8fafc;
+            --text-light: #94a3b8;
+            --border: rgba(255, 255, 255, 0.08);
+            --board-bg: #0f172a;     
+        }
+
+        * { box-sizing: border-box; font-family: 'Inter', 'Segoe UI', system-ui, sans-serif; }
+        
+        body { 
+            background: #090e17;
+            background-image: 
+                radial-gradient(circle at 15% 50%, rgba(245, 158, 11, 0.05), transparent 25%),
+                radial-gradient(circle at 85% 30%, rgba(16, 185, 129, 0.05), transparent 25%);
+            color: var(--text); 
+            margin: 0; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            min-height: 100vh; 
+            overflow-x: hidden; 
+        }
+
+        /* Loading Overlay */
+        #loading-overlay {
+            position: fixed; inset: 0; background: rgba(9, 14, 23, 0.9); z-index: 9999;
+            display: none; justify-content: center; align-items: center; flex-direction: column; color: var(--primary);
+            backdrop-filter: blur(5px);
+        }
+        .spinner { border: 4px solid rgba(255,255,255,0.1); border-top: 4px solid var(--primary); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 15px;}
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* Setup Screen */
+        #setup-screen {
+            position: fixed; inset: 0; background: rgba(9, 14, 23, 0.95); backdrop-filter: blur(15px);
+            display: flex; justify-content: center; align-items: center; z-index: 1000;
+        }
+        .setup-card {
+            background: linear-gradient(145deg, #1e293b, #0f172a); padding: 2.5rem; border-radius: 1.5rem; width: 90%; max-width: 450px;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.8), inset 0 1px 1px rgba(255,255,255,0.1); 
+            text-align: center; border: 1px solid var(--border);
+        }
+        .setup-card h1 { margin-top: 0; color: var(--primary); font-size: 2.5rem; margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 2px; text-shadow: 0 0 20px rgba(245, 158, 11, 0.4); }
+        .setup-card p { color: var(--text-light); margin-bottom: 2rem; font-size: 1rem; }
+        
+        .mode-tabs { display: flex; gap: 10px; margin-bottom: 20px; background: #0b1120; padding: 5px; border-radius: 10px; border: 1px solid var(--border); }
+        .mode-tab { flex: 1; padding: 10px; background: transparent; color: var(--text-light); border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: all 0.3s; }
+        .mode-tab.active { background: var(--card-bg); color: var(--primary); box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+
+        .input-group { margin: 1.2rem 0; text-align: left; }
+        .input-group label { display: block; margin-bottom: 0.5rem; font-weight: 600; color: #cbd5e1; font-size: 0.95rem; }
+        .input-group select, .input-group input { width: 100%; padding: 1rem; background: #0b1120; color: white; border: 1px solid var(--border); border-radius: 0.75rem; font-size: 1.05rem; outline: none; transition: all 0.3s; box-shadow: inset 0 2px 4px rgba(0,0,0,0.5); }
+        .input-group select:focus, .input-group input:focus { border-color: var(--primary); box-shadow: 0 0 10px rgba(245, 158, 11, 0.2), inset 0 2px 4px rgba(0,0,0,0.5); }
+        
+        .btn-start { background: linear-gradient(135deg, #f59e0b, #d97706); color: white; border: none; padding: 1.2rem 2rem; border-radius: 0.75rem; font-size: 1.2rem; font-weight: bold; cursor: pointer; width: 100%; transition: all 0.3s; margin-top: 1rem; box-shadow: 0 10px 20px -5px rgba(245, 158, 11, 0.5); text-transform: uppercase; letter-spacing: 1px; }
+        .btn-start:hover { transform: translateY(-3px); box-shadow: 0 15px 25px -5px rgba(245, 158, 11, 0.6); filter: brightness(1.1); }
+
+        /* Lobby Screen */
+        #lobby-screen { display: none; flex-direction: column; align-items: center; }
+        .lobby-players { list-style: none; padding: 0; margin: 20px 0; width: 100%; text-align: left;}
+        .lobby-players li { background: rgba(0,0,0,0.3); padding: 12px 20px; margin-bottom: 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); font-weight: bold; display: flex; align-items: center; gap: 10px;}
+        .lobby-players li .host-badge { background: var(--primary); color: #000; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: 800; }
+
+        /* Main Layout */
+        #game-container {
+            display: grid; grid-template-columns: minmax(750px, 950px) 360px; gap: 30px; padding: 30px;
+            width: 100%; max-width: 1400px; margin: 0 auto;
+        }
+
+        /* Board Styling */
+        .board {
+            display: grid; grid-template-columns: repeat(11, 1fr); grid-template-rows: repeat(11, 1fr);
+            aspect-ratio: 1/1; background: #0b1120; gap: 6px; padding: 10px; border-radius: 20px; position: relative;
+            box-shadow: 0 30px 60px rgba(0,0,0,0.7), inset 0 0 0 1px rgba(255,255,255,0.05);
+            border: 2px solid rgba(255,255,255,0.08);
+        }
+        
+        .center-logo {
+            grid-column: 2 / 11; grid-row: 2 / 11; display: flex; flex-direction: column; justify-content: center; align-items: center;
+            background: radial-gradient(circle at center, rgba(15, 23, 42, 0.4), #0b1120 70%), repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(255,255,255,0.02) 39px, rgba(255,255,255,0.02) 40px), repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(255,255,255,0.02) 39px, rgba(255,255,255,0.02) 40px);
+            border-radius: 12px; margin: 10px; border: 1px solid rgba(255,255,255,0.03); pointer-events: none;
+        }
+        .center-logo h1 { font-size: 4.5rem; color: #fff; margin: 0; text-transform: uppercase; letter-spacing: 8px; transform: rotate(-35deg); text-shadow: 0 0 30px rgba(255,255,255,0.2), 0 5px 15px rgba(0,0,0,0.8); }
+        .center-logo p { font-size: 1.8rem; font-weight: bold; transform: rotate(-35deg); margin-top: -5px; color: var(--primary); letter-spacing: 6px; text-shadow: 0 0 20px rgba(245, 158, 11, 0.4); }
+
+        .cell {
+            background: linear-gradient(145deg, #1e293b, #111827); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            position: relative; text-align: center; overflow: hidden; color: #f8fafc;
+            box-shadow: inset 0 1px 1px rgba(255,255,255,0.1), 0 4px 6px rgba(0,0,0,0.3); transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        /* 🔥 FIX 1: 优化顶部颜色条和房子图标显示 🔥 */
+        .color-bar { 
+            position: absolute; top: 0; left: 0; right: 0; 
+            height: 24px; /* 加宽颜色条以便放下房子 */
+            background: var(--cell-color, transparent); 
+            box-shadow: 0 2px 10px rgba(0,0,0,0.5); 
+            display: flex; justify-content: center; align-items: center; gap: 3px;
+            z-index: 3;
+            border-top-left-radius: 7px; border-top-right-radius: 7px;
+        }
+        .cell-content { 
+            flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; 
+            padding: 26px 4px 4px 4px; /* 增加顶部内边距，防止文字和颜色条重叠 */
+            font-size: 0.72rem; font-weight: 700; gap: 4px; z-index: 2;
+        }
+        .house-icon { 
+            font-size: 14px; /* 放大房子图标 */
+            line-height: 1; 
+            text-shadow: 0 0 5px rgba(255,255,255,0.9); 
+            position: static; margin: 0; 
+        }
+        
+        .cell .price { font-weight: 800; color: var(--primary); font-size: 0.7rem; text-shadow: 0 0 8px rgba(245, 158, 11, 0.2); }
+        
+        .cell.special { background: linear-gradient(145deg, #334155, #1e293b); }
+        .cell.start { background: linear-gradient(145deg, #7f1d1d, #450a0a); color: #fca5a5; border-color: #fca5a5; }
+        .cell.chance { background: linear-gradient(145deg, #0c4a6e, #082f49); color: #7dd3fc; }
+        .cell.fate { background: linear-gradient(145deg, #713f12, #422006); color: #fde047; }
+        .cell.jail { background: linear-gradient(145deg, #475569, #1e293b); }
+        .cell.airport { background: linear-gradient(145deg, #1e293b, #0f172a); }
+
+        .mortgage-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.75); display: flex; justify-content: center; align-items: center; font-size: 1.5rem; z-index: 6; pointer-events: none; opacity: 0; transition: opacity 0.3s; backdrop-filter: grayscale(1); }
+        .cell.is-mortgaged .mortgage-overlay { opacity: 1; }
+        .owner-border { position: absolute; inset: 0; border: 2px solid transparent; pointer-events: none; z-index: 5; transition: border-color 0.3s; border-radius: 8px; }
+        .cell.has-owner { box-shadow: inset 0 0 20px rgba(0,0,0,0.8); }
+
+        /* Tokens */
+        .token {
+            width: 18px; height: 18px; border-radius: 50%; border: 2px solid #fff;
+            position: absolute; transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+            z-index: 10; box-shadow: 0 0 10px var(--token-color), 0 4px 6px rgba(0,0,0,0.8);
+        }
+
+        /* Sidebar Panels */
+        .sidebar { display: flex; flex-direction: column; gap: 24px; }
+        .panel { background: var(--panel-bg); backdrop-filter: blur(16px); padding: 1.8rem; border-radius: 1.2rem; box-shadow: 0 15px 30px rgba(0,0,0,0.5), inset 0 1px 1px rgba(255,255,255,0.1); border: 1px solid var(--border); }
+        .panel h3 { margin-top: 0; margin-bottom: 1.2rem; padding-bottom: 0.8rem; border-bottom: 1px solid rgba(255,255,255,0.05); color: var(--text); font-size: 1.1rem; font-weight: 800; letter-spacing: 1px; display: flex; align-items: center; gap: 8px;}
+        
+        .player-status { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; padding: 12px; border-radius: 10px; transition: all 0.2s; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.03); }
+        .player-status.active { background: rgba(245, 158, 11, 0.08); border-color: rgba(245, 158, 11, 0.3); box-shadow: inset 4px 0 0 var(--primary); transform: translateX(5px); }
+        .player-status.bankrupt { opacity: 0.3; filter: grayscale(1); text-decoration: line-through; }
+        .color-dot { width: 16px; height: 16px; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 12px var(--dot-color); border: 2px solid rgba(255,255,255,0.8); }
+        .player-info-text { flex: 1; display: flex; flex-direction: column; }
+        .player-info-text strong { font-size: 1rem; color: #fff; display: flex; justify-content: space-between; align-items: center;}
+        .player-info-text small { color: var(--text-light); font-weight: 500; margin-top: 6px; font-size: 0.75rem; line-height: 1.5; background: rgba(0,0,0,0.3); padding: 4px 8px; border-radius: 4px; }
+        .free-ticket-badge { color: #fcd34d; font-weight: bold; animation: pulse 2s infinite; }
+
+        @keyframes pulse { 0% { opacity: 0.8; } 50% { opacity: 1; text-shadow: 0 0 8px #fcd34d; } 100% { opacity: 0.8; } }
+
+        /* Logs */
+        #game-log { height: 240px; overflow-y: auto; font-size: 0.85rem; padding: 12px; border-radius: 8px; background: rgba(0,0,0,0.4); border: 1px solid var(--border); box-shadow: inset 0 4px 10px rgba(0,0,0,0.5); }
+        #game-log::-webkit-scrollbar { width: 4px; }
+        #game-log::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+        .log-entry { margin-bottom: 12px; line-height: 1.5; color: #cbd5e1; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.03); }
+        .log-entry strong { color: var(--text); }
+
+        /* Controls */
+        .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 1rem; }
+        .controls .full-width { grid-column: span 2; }
+        .btn-action { background: linear-gradient(135deg, var(--primary), var(--primary-hover)); color: #fff; border: none; padding: 1rem; border-radius: 0.5rem; cursor: pointer; font-weight: 800; font-size: 1rem; transition: all 0.2s; display: flex; justify-content: center; align-items: center; gap: 8px; text-transform: uppercase; letter-spacing: 1px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+        .btn-action:hover:not(:disabled) { transform: translateY(-2px); filter: brightness(1.15); box-shadow: 0 8px 20px rgba(245, 158, 11, 0.4); }
+        .btn-action:disabled { background: #334155; color: #64748b; cursor: not-allowed; transform: none; box-shadow: none; }
+        .btn-action.secondary { background: rgba(255,255,255,0.05); color: var(--text); border: 1px solid rgba(255,255,255,0.1); }
+        .btn-action.secondary:hover:not(:disabled) { background: rgba(255,255,255,0.1); box-shadow: none;}
+        .btn-action.danger { background: linear-gradient(135deg, #ef4444, #b91c1c); }
+        .btn-action.warning { background: linear-gradient(135deg, #0284c7, #0369a1); } 
+
+        /* Modals */
+        #modal-overlay { position: fixed; inset: 0; background: rgba(9, 14, 23, 0.85); backdrop-filter: blur(10px); display: none; justify-content: center; align-items: center; z-index: 200; }
+        .modal { background: linear-gradient(145deg, #1e293b, #0f172a); border: 1px solid rgba(255,255,255,0.1); border-radius: 1.2rem; max-width: 420px; width: 90%; overflow: hidden; box-shadow: 0 30px 60px rgba(0,0,0,0.8), inset 0 1px 1px rgba(255,255,255,0.1); animation: modalPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); color: var(--text); }
+        .prop-card-header { padding: 1.5rem; text-align: center; color: white; font-size: 1.6rem; font-weight: 800; text-shadow: 0 2px 4px rgba(0,0,0,0.6); position: relative; letter-spacing: 2px; }
+        .prop-card-body { padding: 2rem; text-align: center; background: #0b1120; }
+        .rent-row { display: flex; justify-content: space-between; margin-bottom: 0.8rem; font-size: 1rem; color: #94a3b8; }
+        .rent-row.highlight { font-weight: bold; color: var(--primary); background: rgba(245, 158, 11, 0.1); padding: 10px 15px; border-radius: 8px; margin: -10px -15px 1.2rem -15px; border: 1px solid rgba(245, 158, 11, 0.2); }
+        .cost-info { margin-top: 1.5rem; padding-top: 1.2rem; border-top: 1px dashed rgba(255,255,255,0.1); font-size: 0.95rem; color: #64748b; display: flex; flex-direction: column; gap: 8px; }
+        .modal-buttons { display: flex; gap: 12px; justify-content: center; padding: 1.5rem; background: #0f172a; border-top: 1px solid rgba(255,255,255,0.05); }
+        .modal-buttons .btn-action { flex: 1; padding: 1rem; font-size: 1rem; border-radius: 8px; }
+        
+        .asset-item { display:flex; flex-direction:column; background: rgba(0,0,0,0.4); padding:16px; margin-bottom:12px; border-radius:10px; border:1px solid rgba(255,255,255,0.05); text-align:left; box-shadow: inset 0 2px 4px rgba(0,0,0,0.5); }
+        .asset-item.mortgaged { border-color: rgba(239, 68, 68, 0.4); background: rgba(239, 68, 68, 0.05); }
+        .asset-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .asset-title { font-size: 1.1rem; font-weight: bold; color: #fff; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+        .asset-badges { display: flex; gap: 6px; }
+        .badge { padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; letter-spacing: 1px; }
+        .badge.warning { background: rgba(239, 68, 68, 0.2); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.3); }
+        .badge.success { background: rgba(16,185,129,0.15); color: #34d399; border: 1px solid rgba(16,185,129,0.3); }
+        .asset-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+        @keyframes modalPop { 0% { transform: scale(0.9) translateY(20px); opacity: 0; } 100% { transform: scale(1) translateY(0); opacity: 1; } }
+
+        @media (max-width: 1000px) {
+            #game-container { grid-template-columns: 1fr; padding: 15px; }
+            .board { max-width: 100%; border-width: 2px; padding: 4px; gap: 4px; }
+            .center-logo h1 { font-size: 2.5rem; letter-spacing: 4px; }
+            .center-logo p { font-size: 1.2rem; }
+            .cell-content { font-size: 0.65rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="loading-overlay">
+        <div class="spinner"></div>
+        <p id="loading-text" style="font-weight:bold; font-size:1.1rem;">正在连接云端服务器...</p>
+    </div>
+
+    <div id="setup-screen">
+        <div class="setup-card">
+            <h1>世界大富翁</h1>
+            <p>金融霸主 🏦 巅峰对决</p>
+            
+            <div class="mode-tabs">
+                <button class="mode-tab active" id="tab-local" onclick="switchTab('local')">本地同屏</button>
+                <button class="mode-tab" id="tab-online" onclick="switchTab('online')">网络联机</button>
+            </div>
+
+            <div id="setup-local">
+                <div class="input-group">
+                    <label>选择参与财团数 (最多6人)</label>
+                    <select id="total-players">
+                        <option value="2">2 名资本家</option>
+                        <option value="3">3 名资本家</option>
+                        <option value="4" selected>4 名资本家</option>
+                        <option value="5">5 名资本家</option>
+                        <option value="6">6 名资本家</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label>配置 AI 游资</label>
+                    <select id="ai-players">
+                        <option value="0">0 (全人类对战)</option>
+                        <option value="1">1 个 AI</option>
+                        <option value="2" selected>2 个 AI</option>
+                        <option value="3">3 个 AI</option>
+                        <option value="4">4 个 AI</option>
+                        <option value="5">5 个 AI</option>
+                    </select>
+                </div>
+                <button class="btn-start" onclick="startGameLocal()">进入本地对战</button>
+            </div>
+
+            <div id="setup-online" style="display: none;">
+                <div class="input-group">
+                    <label>服务器密码 (可选)</label>
+                    <input type="password" id="online-password" placeholder="请输入服务器访问密码">
+                </div>
+                <div class="input-group">
+                    <label>玩家昵称</label>
+                    <input type="text" id="online-name" placeholder="输入你的大名">
+                </div>
+                <div class="input-group">
+                    <label>房间号 (数字/字母)</label>
+                    <input type="text" id="online-room" placeholder="例如: 888">
+                </div>
+                <button class="btn-start" onclick="joinOnlineRoom()">加入/创建房间</button>
+            </div>
+
+            <div id="lobby-screen">
+                <h3 style="color:var(--primary); margin-top:0;">📡 房间号: <span id="lobby-room-id"></span></h3>
+                <ul class="lobby-players" id="lobby-players"></ul>
+                <p id="lobby-waiting-text" style="color:var(--text-light); font-size:0.9rem;">等待房主开始游戏...</p>
+                <button id="btn-start-online" class="btn-start" onclick="startOnlineGame()" style="display:none;">全员到齐，开始对战！</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="game-container">
+        <div class="board" id="board">
+            <div class="center-logo">
+                <h1>Monopoly</h1>
+                <p>GLOBAL FINANCE</p>
+                <div id="network-indicator" style="display:none; color:var(--secondary); font-size:1rem; margin-top:10px; letter-spacing:2px;">[ 🟢 已连接云端 ]</div>
+            </div>
+            <div id="tokens-container"></div>
+        </div>
+
+        <div class="sidebar">
+            <div class="panel">
+                <h3>💼 财团资产状态面板</h3>
+                <div id="player-info"></div>
+            </div>
+            
+            <div class="panel">
+                <h3>🕹️ 核心操作台</h3>
+                <div class="controls">
+                    <button id="roll-btn" class="btn-action full-width" onclick="handleRoll()" disabled>🎲 投掷骰子</button>
+                    <button id="asset-btn" class="btn-action warning" onclick="openAssetManager()" disabled>🏦 银行与资产</button>
+                    <button id="end-turn-btn" class="btn-action secondary" onclick="nextTurn()" disabled>结束回合</button>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h3>📜 市场实时动态</h3>
+                <div id="game-log"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-overlay">
+        <div class="modal" id="modal-content"></div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, onSnapshot, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // ==========================================
+        // 【网络联机配置区】
+        // ==========================================
+        let firebaseConfig = {
+            apiKey: "AIzaSyB8yhiOueicbUtz676uFpWPRIdGJibZFZQ",
+            authDomain: "mygame-275e8.firebaseapp.com",
+            projectId: "mygame-275e8",
+            storageBucket: "mygame-275e8.firebasestorage.app",
+            messagingSenderId: "557892423493",
+            appId: "1:557892423493:web:5fb30fbbbc52307a99382c"
+        };
+        let appId = "world-monopoly";
+        
+        if (typeof __firebase_config !== 'undefined') {
+            firebaseConfig = JSON.parse(__firebase_config);
+        }
+        if (typeof __app_id !== 'undefined') {
+            appId = __app_id;
+        }
+
+        let app, auth, db;
+        try {
+            if (Object.keys(firebaseConfig).length > 0) {
+                app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+            }
+        } catch (error) {
+            console.warn("网络联机服务初始化失败，本地模式可正常游玩。");
+        }
+
+        let isOnline = false;
+        let onlineRoomId = null;
+        let myUid = null;
+        let isHost = false;
+        let unsubscribeSnapshot = null;
+
+        const COLORS = {
+            brown: "#b45309", lblue: "#0284c7", pink: "#db2777", orange: "#ea580c",
+            red: "#dc2626", yellow: "#ca8a04", green: "#16a34a", blue: "#2563eb", airport: "#64748b"
+        };
+        const AIRPORT_RENTS = [0, 100, 200, 400, 800]; 
+        const PLAYER_COLORS = ["#f59e0b", "#3b82f6", "#10b981", "#ec4899", "#8b5cf6", "#06b6d4"];
+        const INITIAL_MONEY = 2000;
+        const INTEREST_RATE = 0.03; 
+
+        let CITIES = [];
+        let players = [];
+        let currentPlayerIdx = 0;
+        let isGameOver = false;
+        let gameLogs = [];
+
+        function resetData() {
+            CITIES = [
+                { name: "起点 (领$200)", type: "start" }, 
+                { name: "台北", type: "property", color: COLORS.brown, price: 220, upgPrice: 50, rents: [5, 25, 75, 225, 400] },
+                { name: "机会", type: "chance" },
+                { name: "雅加达", type: "property", color: COLORS.brown, price: 220, upgPrice: 50, rents: [10, 50, 150, 400, 550] },
+                { name: "命运", type: "fate" },
+                { name: "虹桥机场", type: "airport", color: COLORS.airport, price: 600 }, 
+                { name: "吉隆坡", type: "property", color: COLORS.lblue, price: 300, upgPrice: 100, rents: [15, 60, 180, 500, 700] },
+                { name: "新加坡", type: "property", color: COLORS.lblue, price: 300, upgPrice: 100, rents: [15, 60, 180, 500, 700] },
+                { name: "机会", type: "chance" },
+                { name: "曼谷", type: "property", color: COLORS.lblue, price: 380, upgPrice: 100, rents: [20, 80, 220, 600, 800] },
+                { name: "监狱探访", type: "jail" }, 
+                { name: "首尔", type: "property", color: COLORS.pink, price: 400, upgPrice: 150, rents: [25, 100, 300, 750, 950] },
+                { name: "孟买", type: "property", color: COLORS.pink, price: 400, upgPrice: 150, rents: [25, 100, 300, 750, 950] },
+                { name: "命运", type: "fate" },
+                { name: "迪拜", type: "property", color: COLORS.pink, price: 450, upgPrice: 150, rents: [30, 120, 350, 850, 1050] },
+                { name: "肯尼迪机场", type: "airport", color: COLORS.airport, price: 750 }, 
+                { name: "开罗", type: "property", color: COLORS.orange, price: 500, upgPrice: 200, rents: [35, 150, 450, 1000, 1200] },
+                { name: "机会", type: "chance" },
+                { name: "罗马", type: "property", color: COLORS.orange, price: 500, upgPrice: 200, rents: [35, 150, 450, 1000, 1200] },
+                { name: "慕尼黑", type: "property", color: COLORS.orange, price: 650, upgPrice: 200, rents: [40, 180, 500, 1100, 1300] },
+                { name: "免费停车", type: "parking" }, 
+                { name: "莫斯科", type: "property", color: COLORS.red, price: 700, upgPrice: 250, rents: [45, 200, 550, 1200, 1400] },
+                { name: "机会", type: "chance" },
+                { name: "巴黎", type: "property", color: COLORS.red, price: 700, upgPrice: 250, rents: [45, 200, 550, 1200, 1400] },
+                { name: "命运", type: "fate" },
+                { name: "希思罗机场", type: "airport", color: COLORS.airport, price: 800 }, 
+                { name: "伦敦", type: "property", color: COLORS.red, price: 850, upgPrice: 250, rents: [50, 220, 600, 1300, 1500] },
+                { name: "柏林", type: "property", color: COLORS.yellow, price: 900, upgPrice: 300, rents: [55, 250, 700, 1400, 1700] },
+                { name: "机会", type: "chance" },
+                { name: "悉尼", type: "property", color: COLORS.yellow, price: 900, upgPrice: 300, rents: [55, 250, 700, 1400, 1700] },
+                { name: "送往监狱", type: "tojail" }, 
+                { name: "洛杉矶", type: "property", color: COLORS.yellow, price: 950, upgPrice: 300, rents: [60, 280, 800, 1500, 1800] },
+                { name: "命运", type: "fate" },
+                { name: "多伦多", type: "property", color: COLORS.green, price: 1000, upgPrice: 400, rents: [70, 350, 950, 1700, 2000] },
+                { name: "机会", type: "chance" },
+                { name: "戴高乐机场", type: "airport", color: COLORS.airport, price: 1200 }, 
+                { name: "芝加哥", type: "property", color: COLORS.green, price: 1250, upgPrice: 400, rents: [70, 350, 950, 1700, 2000] },
+                { name: "纽约", type: "property", color: COLORS.green, price: 1400, upgPrice: 400, rents: [80, 400, 1100, 1900, 2200] },
+                { name: "命运", type: "fate" },
+                { name: "北京", type: "property", color: COLORS.blue, price: 1400, upgPrice: 500, rents: [100, 500, 1400, 2500, 3000] } 
+            ];
+            CITIES.forEach((c, idx) => { c.ownerId = null; c.level = 0; c.idx = idx; c.isMortgaged = false; c.loanAmount = 0; });
+        }
+
+        const CHANCE_CARDS = [
+            { text: "🌟 财运亨通！获得【再来一次】的机会，继续你的回合！", action: async (p) => { return 'PLAY_AGAIN'; } },
+            { text: "🎫 获得顶级建筑商赞助：下一次扩建资产完全免费！", action: async (p) => { p.freeHouse = true; } },
+            { text: "获得政府科创基金注入，资金 +$200", action: async (p) => p.money += 200 },
+            { text: "被查出税务违规，缴纳罚款 $100", action: async (p) => await deductMoney(p, 100) },
+            { text: "保送前行！直接前往起点并领取 $200", action: async (p) => { p.pos = 0; p.money += 200; updateTokens(); } },
+            { text: "缴纳房产税，每栋房屋/旅馆支付 $25", action: async (p) => {
+                let houses = CITIES.reduce((sum, c) => (c.ownerId === p.id) ? sum + c.level : sum, 0);
+                if(houses > 0) await deductMoney(p, houses * 25);
+            }},
+            { text: "股票分红，收益 $50", action: async (p) => p.money += 50 },
+            { text: "基金暴涨，获利 $150", action: async (p) => p.money += 150 },
+            { text: "私人飞机延误，退后 3 格", action: async (p) => {
+                p.pos = (p.pos - 3 + CITIES.length) % CITIES.length;
+                updateTokens(); await handleLand(p); return 'SKIP_END';
+            }},
+            { text: "直飞虹桥机场 (不计起点奖励)", action: async (p) => {
+                p.pos = 5; updateTokens(); await handleLand(p); return 'SKIP_END';
+            }}
+        ];
+
+        const FATE_CARDS = [
+            { text: "做空失败爆仓，损失 $250", action: async (p) => await deductMoney(p, 250) },
+            { text: "刮刮乐中头奖，奖金 $300", action: async (p) => p.money += 300 },
+            { text: "涉嫌金融诈骗，立即逮捕入狱！", action: async (p) => { p.pos = 10; updateTokens(); } },
+            { text: "信托理财到期，获得 $150", action: async (p) => p.money += 150 },
+            { text: "公司遭遇勒索软件攻击，支付 $200", action: async (p) => await deductMoney(p, 200) },
+            { text: "强制消防改造，每栋建筑支付 $50", action: async (p) => {
+                let houses = CITIES.reduce((sum, c) => (c.ownerId === p.id) ? sum + c.level : sum, 0);
+                if(houses > 0) await deductMoney(p, houses * 50);
+            }},
+            { text: "海外账户被短暂冻结，损失 $180", action: async (p) => await deductMoney(p, 180) },
+            { text: "继承远房亲戚遗产，获得 $400", action: async (p) => p.money += 400 },
+            { text: "高昂的私人医疗账单，支付 $100", action: async (p) => await deductMoney(p, 100) }
+        ];
+
+        function showLoading(text) { document.getElementById('loading-text').innerText = text; document.getElementById('loading-overlay').style.display = 'flex'; }
+        function hideLoading() { document.getElementById('loading-overlay').style.display = 'none'; }
+        
+        function getOwner(city) { return city.ownerId !== null ? players.find(p => p.id === city.ownerId) : null; }
+        function getTotalPropertyValue(city) { return city.price + (city.level * (city.upgPrice || 0)); }
+        function getSellValue(city) { return Math.floor(getTotalPropertyValue(city) * 0.65); }
+        function getMortgageValue(city) { return Math.floor(getTotalPropertyValue(city) * 0.45); }
+        function getGridStyle(i) {
+            if (i <= 10) return `grid-column: ${11 - i}; grid-row: 11;`;
+            if (i <= 20) return `grid-column: 1; grid-row: ${21 - i};`;
+            if (i <= 30) return `grid-column: ${i - 19}; grid-row: 1;`;
+            if (i <= 39) return `grid-column: 11; grid-row: ${i - 29};`;
+        }
+
+        // 🔥 FIX 2: 增强同步的健壮性，防止单字段覆盖引起报错 🔥
+        async function syncState() {
+            if (!isOnline || !onlineRoomId) return;
+            try {
+                const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', onlineRoomId);
+                const simplifiedCities = CITIES.map(c => ({ ownerId: c.ownerId, level: c.level, isMortgaged: c.isMortgaged, loanAmount: c.loanAmount }));
+                await setDoc(roomRef, {
+                    players: players,
+                    cities: simplifiedCities,
+                    currentPlayerIdx: currentPlayerIdx,
+                    logs: gameLogs
+                }, { merge: true });
+            } catch(e) { console.error("同步数据失败: ", e); }
+        }
+
+        window.switchTab = function(mode) {
+            document.getElementById('tab-local').classList.remove('active');
+            document.getElementById('tab-online').classList.remove('active');
+            document.getElementById(`tab-${mode}`).classList.add('active');
+            document.getElementById('setup-local').style.display = mode === 'local' ? 'block' : 'none';
+            document.getElementById('setup-online').style.display = mode === 'online' ? 'block' : 'none';
+        }
+
+        window.startGameLocal = function() {
+            resetData();
+            isOnline = false;
+            const total = parseInt(document.getElementById('total-players').value);
+            const aiCount = parseInt(document.getElementById('ai-players').value);
+            if (aiCount >= total) { alert("电脑数量不能超过或等于总人数"); return; }
+
+            players = [];
+            for (let i = 0; i < total; i++) {
+                players.push({
+                    id: i, uid: `local-${i}`, name: i < (total - aiCount) ? `财团 ${i + 1}` : `AI 游资 ${i + 1}`,
+                    isAI: i >= (total - aiCount), money: INITIAL_MONEY, pos: 0, isBankrupt: false, freeHouse: false, color: PLAYER_COLORS[i]
+                });
+            }
+            document.getElementById('setup-screen').style.display = 'none';
+            initBoard(); renderPlayersInfo(); updateTokens();
+            addLog(`🌍 本地商业帝国游戏启动！每家财团获注资 $${INITIAL_MONEY}`, 'success');
+            triggerTurn();
+        }
+
+        // 🔥 FIX 2: 补充了严格的网络连接校验和中文报错提醒 🔥
+        window.joinOnlineRoom = async function() {
+            if (!auth || !db) {
+                alert("⛔ 网络服务尚未配置成功！\n请确保在代码顶部的 firebaseConfig 中填入您自己的真实 Firebase 配置。");
+                return;
+            }
+
+            const pwd = document.getElementById('online-password').value.trim();
+            const name = document.getElementById('online-name').value.trim();
+            const rid = document.getElementById('online-room').value.trim();
+            if (!name || !rid) { alert("请输入昵称和房间号"); return; }
+
+            showLoading("正在连接云端节点...");
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch(e) { 
+                hideLoading(); 
+                console.error("Auth Error:", e);
+                alert("⛔ 认证失败！\n原因：您的 Firebase 后台没有开启【匿名登录 (Anonymous)】功能，或者配置的 API Key 错误。\n请前往 Firebase Console -> Authentication 开启该功能。"); 
+                return; 
+            }
+
+            onAuthStateChanged(auth, async (user) => {
+                if (!user) return;
+                myUid = user.uid;
+                
+                try {
+                    showLoading("正在验证服务器并获取房间数据...");
+                    const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', onlineRoomId);
+                    const roomSnap = await getDoc(roomRef);
+
+                    if (!roomSnap.exists()) {
+                        isHost = true;
+                        await setDoc(roomRef, {
+                            status: 'waiting',
+                            players: [{ id: 0, uid: myUid, name: name, isAI: false, money: INITIAL_MONEY, pos: 0, isBankrupt: false, freeHouse: false, color: PLAYER_COLORS[0] }],
+                            cities: [], currentPlayerIdx: 0, logs: []
+                        });
+                    } else {
+                        const data = roomSnap.data();
+                        if (data.status === 'playing') {
+                            if (!data.players.some(p => p.uid === myUid)) {
+                                hideLoading(); alert("该房间游戏已在进行中，无法中途加入！"); return;
+                            }
+                        } else {
+                            if (!data.players.some(p => p.uid === myUid)) {
+                                if (data.players.length >= 6) { hideLoading(); alert("房间已满 (最多6人)"); return; }
+                                const newPlayer = { id: data.players.length, uid: myUid, name: name, isAI: false, money: INITIAL_MONEY, pos: 0, isBankrupt: false, freeHouse: false, color: PLAYER_COLORS[data.players.length] };
+                                await updateDoc(roomRef, { players: [...data.players, newPlayer] });
+                            }
+                        }
+                    }
+
+                    onlineRoomId = rid;
+                    isOnline = true;
+                    document.getElementById('setup-local').style.display = 'none';
+                    document.getElementById('setup-online').style.display = 'none';
+                    document.querySelector('.mode-tabs').style.display = 'none';
+                    document.getElementById('lobby-screen').style.display = 'flex';
+                    document.getElementById('lobby-room-id').innerText = onlineRoomId;
+
+                    hideLoading();
+
+                    // Listen to room changes
+                    if (unsubscribeSnapshot) unsubscribeSnapshot();
+                    unsubscribeSnapshot = onSnapshot(roomRef, (doc) => {
+                        if (!doc.exists()) return;
+                        const d = doc.data();
+                        players = d.players;
+                        
+                        if (d.status === 'waiting') {
+                            const ul = document.getElementById('lobby-players');
+                            ul.innerHTML = '';
+                            players.forEach((p, idx) => {
+                                ul.innerHTML += `<li><div class="color-dot" style="background:${p.color}"></div> ${p.name} ${idx === 0 ? '<span class="host-badge">房主</span>' : ''} ${p.uid === myUid ? '(你)' : ''}</li>`;
+                            });
+                            isHost = players[0].uid === myUid;
+                            document.getElementById('btn-start-online').style.display = isHost ? 'block' : 'none';
+                            document.getElementById('lobby-waiting-text').style.display = isHost ? 'none' : 'block';
+                        } else if (d.status === 'playing') {
+                            if(CITIES.length === 0) resetData();
+                            if (d.cities && d.cities.length > 0) {
+                                d.cities.forEach((c, idx) => {
+                                    CITIES[idx].ownerId = c.ownerId;
+                                    CITIES[idx].level = c.level;
+                                    CITIES[idx].isMortgaged = c.isMortgaged;
+                                    CITIES[idx].loanAmount = c.loanAmount;
+                                });
+                            }
+                            currentPlayerIdx = d.currentPlayerIdx;
+                            
+                            // Handle Logs
+                            if (d.logs) {
+                                const newLogs = d.logs.slice(gameLogs.length);
+                                newLogs.forEach(l => renderLogHTML(l.msg, l.type));
+                                gameLogs = d.logs;
+                            }
+
+                            document.getElementById('setup-screen').style.display = 'none';
+                            document.getElementById('network-indicator').style.display = 'block';
+                            
+                            if (!document.getElementById('cell-0')) initBoard();
+                            updateBoardVisuals(); updateTokens(); renderPlayersInfo();
+                            evaluateControls();
+                        }
+                    });
+
+                } catch (e) {
+                    hideLoading();
+                    console.error("Firestore Error:", e);
+                    alert("⛔ 数据库连接失败！\n\n原因可能是：\n1. 您的 Firebase 数据库规则 (Rules) 未设置允许读写 (如未修改测试模式)。\n2. 您的网络受到阻力无法连接 Google 云服务。\n\n请按 F12 查看详细报错信息。");
+                }
+            });
+        }
+
+        window.startOnlineGame = async function() {
+            if (!isHost) return;
+            resetData();
+            const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', onlineRoomId);
+            const simplifiedCities = CITIES.map(c => ({ ownerId: null, level: 0, isMortgaged: false, loanAmount: 0 }));
+            await setDoc(roomRef, {
+                status: 'playing',
+                cities: simplifiedCities,
+                logs: [{ msg: `🌍 全球联机金融对决正式开始！每家财团获注资 $${INITIAL_MONEY}`, type: 'success' }]
+            }, { merge: true });
+        }
+
+        function initBoard() {
+            const boardEl = document.getElementById('board');
+            document.querySelectorAll('.cell').forEach(e => e.remove());
+            if(CITIES.length === 0) resetData();
+
+            CITIES.forEach((city, i) => {
+                const cell = document.createElement('div');
+                cell.className = `cell ${city.type}`;
+                cell.id = `cell-${i}`;
+                cell.style = `--cell-color: ${city.color || 'transparent'}; ${getGridStyle(i)}`;
+                
+                let contentHTML = '';
+                if (city.type === 'property' || city.type === 'airport') {
+                    const icon = city.type === 'airport' ? '✈️' : '';
+                    contentHTML = `
+                        <div class="color-bar" id="colorbar-${i}"></div>
+                        <div class="cell-content">
+                            <div style="font-size:1.1rem; margin-top:-10px;">${icon}</div>
+                            <div class="name">${city.name}</div>
+                            <div class="price">$${city.price}</div>
+                        </div>
+                        <div class="mortgage-overlay" id="mortgage-${i}">🔒</div>
+                        <div class="owner-border" id="ownerborder-${i}"></div>
+                    `;
+                } else {
+                    const specialIcons = { 'start': '🚀', 'jail': '⛓️', 'tojail': '🚔', 'chance': '🎁', 'fate': '🔮', 'parking': '🅿️' };
+                    contentHTML = `<div class="cell-content"><div style="font-size:1.5rem; margin-bottom:5px;">${specialIcons[city.type] || ''}</div><div style="font-size: 0.85rem;">${city.name}</div></div>`;
+                }
+                cell.innerHTML = contentHTML; boardEl.appendChild(cell);
+            });
+        }
+
+        function updateTokens() {
+            const container = document.getElementById('tokens-container');
+            container.innerHTML = '';
+            const offsets = [{top: 12, left: 8}, {top: 12, left: 30}, {top: 12, left: 52}, {top: 36, left: 8}, {top: 36, left: 30}, {top: 36, left: 52}];
+            players.forEach((p, i) => {
+                if (p.isBankrupt) return;
+                const token = document.createElement('div');
+                token.className = 'token';
+                token.style = `background-color: ${p.color}; --token-color: ${p.color};`;
+                const cell = document.getElementById(`cell-${p.pos}`);
+                if(!cell) return;
+                token.style.left = `${cell.offsetLeft + offsets[i].left}px`;
+                token.style.top = `${cell.offsetTop + offsets[i].top}px`;
+                container.appendChild(token);
+            });
+        }
+        window.addEventListener('resize', updateTokens);
+
+        function updateBoardVisuals() {
+            CITIES.forEach((city, i) => {
+                if((city.type === 'property' || city.type === 'airport')) {
+                    const cellEl = document.getElementById(`cell-${i}`);
+                    const owner = getOwner(city);
+                    if (owner) {
+                        document.getElementById(`ownerborder-${i}`).style.borderColor = owner.color;
+                        cellEl.classList.add('has-owner');
+                        const bar = document.getElementById(`colorbar-${i}`);
+                        if (city.type === 'property') bar.innerHTML = city.level === 4 ? '<span class="house-icon">🏨</span>' : '<span class="house-icon">🏠</span>'.repeat(city.level);
+                        if (city.isMortgaged) cellEl.classList.add('is-mortgaged'); else cellEl.classList.remove('is-mortgaged');
+                    } else {
+                        document.getElementById(`ownerborder-${i}`).style.borderColor = 'transparent';
+                        cellEl.classList.remove('has-owner');
+                        if (city.type === 'property') document.getElementById(`colorbar-${i}`).innerHTML = '';
+                        cellEl.classList.remove('is-mortgaged');
+                    }
+                }
+            });
+        }
+
+        function renderPlayersInfo() {
+            const info = document.getElementById('player-info');
+            info.innerHTML = '';
+            players.forEach((p, i) => {
+                const assets = CITIES.filter(c => c.ownerId === p.id);
+                const debt = assets.reduce((sum, c) => sum + c.loanAmount, 0);
+                const houses = assets.reduce((sum, c) => sum + (c.level || 0), 0);
+                const div = document.createElement('div');
+                div.className = `player-status ${i === currentPlayerIdx ? 'active' : ''} ${p.isBankrupt ? 'bankrupt' : ''}`;
+                div.innerHTML = `
+                    <div class="color-dot" style="background:${p.color}; --dot-color: ${p.color}"></div>
+                    <div class="player-info-text">
+                        <strong>${p.name} ${p.isAI ? '🤖' : (isOnline && p.uid===myUid ? '👤(你)' : '👤')}</strong>
+                        <small>
+                            现金: $${p.money} &nbsp;|&nbsp; 负债: $${debt}<br>
+                            地产: ${assets.length} 块 &nbsp;|&nbsp; 建筑: ${houses} 栋
+                            ${p.freeHouse ? '<br><span class="free-ticket-badge">🎫 免费建房券 x1</span>' : ''}
+                        </small>
+                    </div>`;
+                info.appendChild(div);
+            });
+        }
+
+        function addLog(msg, type = '') {
+            if (isOnline) {
+                gameLogs.push({msg, type});
+                if(gameLogs.length > 50) gameLogs.shift();
+                renderLogHTML(msg, type); 
+            } else {
+                renderLogHTML(msg, type);
+            }
+        }
+
+        function renderLogHTML(msg, type) {
+            const logEl = document.getElementById('game-log');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            players.forEach(p => { msg = msg.replace(new RegExp(p.name, 'g'), `<strong style="color:${p.color}">${p.name}</strong>`); });
+            entry.innerHTML = msg;
+            logEl.appendChild(entry);
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+
+        function isMyTurn() {
+            if (!isOnline) return true;
+            return players[currentPlayerIdx].uid === myUid;
+        }
+
+        function evaluateControls() {
+            if (isGameOver) return;
+            const activePl = players[currentPlayerIdx];
+            if (activePl.isAI) {
+                document.getElementById('roll-btn').disabled = true;
+                document.getElementById('asset-btn').disabled = true;
+                document.getElementById('end-turn-btn').disabled = true;
+                if (isHost || !isOnline) { setTimeout(handleRoll, 1000); } 
+            } else {
+                const canPlay = isMyTurn();
+                document.getElementById('roll-btn').disabled = !canPlay;
+                document.getElementById('asset-btn').disabled = !canPlay;
+                document.getElementById('end-turn-btn').disabled = true;
+            }
+        }
+
+        async function triggerTurn() {
+            if (isGameOver) return;
+            const player = players[currentPlayerIdx];
+            
+            if (isMyTurn() || (!isOnline && player.isAI) || (isOnline && isHost && player.isAI)) {
+                await processInterest(player);
+                if (player.isBankrupt) { nextTurn(); return; } 
+                if(isOnline) syncState();
+            }
+            renderPlayersInfo();
+            evaluateControls();
+        }
+
+        window.handleRoll = async function() {
+            if (isGameOver || (!isMyTurn() && !players[currentPlayerIdx].isAI)) return;
+            document.getElementById('roll-btn').disabled = true;
+            document.getElementById('asset-btn').disabled = true;
+
+            const die = Math.floor(Math.random() * 6) + 1;
+            const player = players[currentPlayerIdx];
+            addLog(`${player.name} 投掷出 ${die} 点 🎲`);
+
+            for (let i = 0; i < die; i++) {
+                player.pos = (player.pos + 1) % CITIES.length;
+                if (player.pos === 0) {
+                    player.money += 200;
+                    addLog(`${player.name} 经过起点，获得 $200`, 'success');
+                    renderPlayersInfo();
+                }
+                updateTokens();
+                await new Promise(r => setTimeout(r, 150));
+            }
+            if(isOnline) syncState();
+            await handleLand(player);
+        }
+
+        async function handleLand(player) {
+            if (isOnline && player.uid !== myUid && !player.isAI) return;
+            if (isOnline && player.isAI && !isHost) return; 
+
+            const city = CITIES[player.pos];
+            addLog(`${player.name} 抵达 [${city.name}]`);
+
+            if (city.type === 'property') {
+                if (city.ownerId !== null) {
+                    if (city.ownerId !== player.id) {
+                        const rent = city.rents[city.level];
+                        const owner = getOwner(city);
+                        addLog(`${player.name} 进入 ${owner.name} 的地盘，支付租金 $${rent}`, 'warning');
+                        await deductMoney(player, rent, owner);
+                    } else {
+                        if (city.level < 4) {
+                            const cost = player.freeHouse ? 0 : city.upgPrice;
+                            if (player.isAI) {
+                                if (player.freeHouse || player.money > cost + 200) { upgradeProperty(player, city, cost); player.freeHouse = false; }
+                            } else {
+                                const action = await askActionModal("项目扩建", getUpgradeHTML(city, player.freeHouse), [
+                                    { text: `🛠️ ${player.freeHouse ? '免券扩建' : '投资 $'+cost+' 扩建'}`, value: true, class: "btn-action" },
+                                    { text: "暂不投资", value: false, class: "btn-action secondary" }
+                                ]);
+                                if (action) {
+                                    if(player.freeHouse || player.money >= cost) { upgradeProperty(player, city, cost); player.freeHouse = false; }
+                                    else addLog("现金流不足，无法进行扩建！", "danger");
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    if (player.isAI) {
+                        if (player.money > city.price + 100) buyProperty(player, city);
+                    } else {
+                        const action = await askActionModal("并购资产", getBuyHTML(city), [
+                            { text: `💰 花费 $${city.price} 并购`, value: true, class: "btn-action" },
+                            { text: "放弃并购", value: false, class: "btn-action secondary" }
+                        ]);
+                        if (action && player.money >= city.price) buyProperty(player, city);
+                    }
+                }
+            } else if (city.type === 'airport') {
+                if (city.ownerId !== null) {
+                    const owner = getOwner(city);
+                    if (city.ownerId !== player.id) {
+                        const ownedCount = CITIES.filter(c => c.type === 'airport' && c.ownerId === owner.id).length;
+                        const rent = AIRPORT_RENTS[ownedCount];
+                        addLog(`${player.name} 使用 ${owner.name} 的航空网络，支付费 $${rent}`, 'warning');
+                        await deductMoney(player, rent, owner);
+                    } else if (city.ownerId === player.id) {
+                        const myAirports = CITIES.filter(c => c.type === 'airport' && c.ownerId === player.id && c.idx !== player.pos);
+                        if (myAirports.length > 0) {
+                            if (!player.isAI) {
+                                let actions = myAirports.map(a => ({ text: `🛫 飞往 ${a.name}`, value: a.idx, class: "btn-action" }));
+                                actions.push({ text: "不调动专机", value: false, class: "btn-action secondary" });
+                                const targetIdx = await askActionModal("✈️ 私人航线", "调动私人飞机转移？", actions);
+                                if (targetIdx !== false) {
+                                    addLog(`${player.name} 飞往 ${CITIES[targetIdx].name}`, 'success');
+                                    player.pos = targetIdx; updateTokens();
+                                }
+                            } else if (Math.random() > 0.5) {
+                                const target = myAirports[Math.floor(Math.random() * myAirports.length)];
+                                addLog(`${player.name} 飞往 ${target.name}`, 'success');
+                                player.pos = target.idx; updateTokens();
+                            }
+                        }
+                    }
+                } else {
+                    if (player.isAI) {
+                        if (player.money > city.price + 100) buyProperty(player, city);
+                    } else {
+                        const action = await askActionModal("收购航空枢纽", `<div class="prop-card-header" style="background-color: var(--card-bg)">${city.name}</div><div class="prop-card-body"><p style="color:#fff">收购价: <strong>$${city.price}</strong><br><br>枢纽网络收益：<br>持有 1 座: $100<br>持有 2 座: $200<br>持有 3 座: $400<br>持有 4 座: $800</p></div>`, [
+                            { text: `💰 花费 $${city.price} 收购`, value: true, class: "btn-action" },
+                            { text: "放弃", value: false, class: "btn-action secondary" }
+                        ]);
+                        if (action && player.money >= city.price) buyProperty(player, city);
+                    }
+                }
+            } else if (city.type === 'chance' || city.type === 'fate') {
+                const deck = city.type === 'chance' ? CHANCE_CARDS : FATE_CARDS;
+                const card = deck[Math.floor(Math.random() * deck.length)];
+                
+                if (!player.isAI) {
+                    await askActionModal(city.name === 'chance' ? "🎁 市场机遇" : "🔮 命运转折", `<div style="padding: 25px; font-size: 1.25rem; color: #fff; font-weight: bold;">${card.text}</div>`, [{ text: "确认", value: true, class: "btn-action" }]);
+                }
+                
+                addLog(`${player.name} 触发：${card.text}`);
+                const state = await card.action(player);
+                renderPlayersInfo();
+                
+                if (state === 'SKIP_END') return; 
+                if (state === 'PLAY_AGAIN') {
+                    addLog(`🎲 ${player.name} 准备进行额外一轮的投掷！`, 'success');
+                    if(isOnline) syncState();
+                    if (player.isAI) { setTimeout(handleRoll, 1500); }
+                    else { document.getElementById('roll-btn').disabled = false; document.getElementById('asset-btn').disabled = false; }
+                    return; 
+                }
+            } else if (city.type === 'tojail') {
+                if(!player.isAI) await askActionModal("🚨 银监会调查", "<p style='padding:20px;font-size:1.1rem;color:#fff;'>涉嫌操纵市场被隔离审查！</p>", [{text:"认罚", value:true, class:"btn-action"}]);
+                player.pos = 10; addLog(`${player.name} 被送入监狱！`, 'danger'); updateTokens();
+            }
+
+            if(isOnline) syncState();
+            showEndTurn();
+        }
+
+        async function deductMoney(player, amount, creditor = null) {
+            player.money -= amount;
+            if (creditor) creditor.money += amount;
+            renderPlayersInfo();
+            if (player.money < 0) {
+                addLog(`⚠️ ${player.name} 资金流断裂 ($${player.money})！`, 'danger');
+                await handleBankruptcyCrisis(player);
+            }
+        }
+
+        async function processInterest(player) {
+            const mortgagedAssets = CITIES.filter(c => c.ownerId === player.id && c.isMortgaged);
+            for (let city of mortgagedAssets) {
+                const interest = Math.max(1, Math.floor(city.loanAmount * INTEREST_RATE));
+                if (player.money >= interest) {
+                    player.money -= interest; addLog(`🏦 银行扣除 ${player.name} [${city.name}] 的贷款利息 $${interest}`);
+                } else {
+                    addLog(`🚨 ${player.name} 无法支付利息，[${city.name}] 被银行强行收回！`, 'danger');
+                    city.ownerId = null; city.level = 0; city.isMortgaged = false; city.loanAmount = 0;
+                }
+            }
+            updateBoardVisuals(); renderPlayersInfo();
+        }
+
+        async function handleBankruptcyCrisis(player) {
+            if (player.isAI) {
+                let assets = CITIES.filter(c => c.ownerId === player.id);
+                let unmortgaged = assets.filter(a => !a.isMortgaged).sort((a,b) => getMortgageValue(b) - getMortgageValue(a));
+                for(let a of unmortgaged) { if(player.money >= 0) break; executeMortgage(a.idx, player); }
+                
+                assets = CITIES.filter(c => c.ownerId === player.id);
+                unmortgaged = assets.filter(a => !a.isMortgaged).sort((a,b) => getSellValue(a) - getSellValue(b));
+                for(let a of unmortgaged) { if(player.money >= 0) break; executeSell(a.idx, player); }
+            } else {
+                while (player.money < 0) {
+                    let canSellOrMortgage = CITIES.some(a => a.ownerId === player.id && !a.isMortgaged);
+                    if (!canSellOrMortgage) break; 
+                    await showAssetManager(player, true); 
+                }
+            }
+
+            if (player.money < 0) {
+                player.isBankrupt = true;
+                addLog(`💥 ${player.name} 彻底破产退出游戏！`, 'danger');
+                CITIES.filter(c => c.ownerId === player.id).forEach(c => { c.ownerId = null; c.level = 0; c.isMortgaged = false; c.loanAmount = 0; });
+                updateBoardVisuals(); checkWin();
+            }
+        }
+
+        function checkWin() {
+            const activePlayers = players.filter(p => !p.isBankrupt);
+            if (activePlayers.length === 1) {
+                isGameOver = true;
+                showBasicModal("🏆 资本神话", `恭喜 <strong>${activePlayers[0].name}</strong> 垄断全球资产！`, [{ text: "关闭", action: () => {} }]);
+            }
+        }
+
+        function buyProperty(player, city) {
+            player.money -= city.price; city.ownerId = player.id;
+            addLog(`🤝 ${player.name} 成功将 [${city.name}] 纳入麾下`, 'success');
+            updateBoardVisuals(); renderPlayersInfo();
+        }
+        
+        function upgradeProperty(player, city, cost) {
+            player.money -= cost; city.level += 1;
+            addLog(`🏗️ ${player.name} 将 [${city.name}] 扩建至 ${city.level===4?'顶级旅馆':city.level+'栋商厦'}！`, 'success');
+            updateBoardVisuals(); renderPlayersInfo();
+        }
+
+        function showEndTurn() {
+            if (isGameOver) return;
+            const player = players[currentPlayerIdx];
+            if (player.isAI) {
+                if(!isOnline || isHost) setTimeout(window.nextTurn, 1000);
+            } else if (isMyTurn()) {
+                document.getElementById('end-turn-btn').disabled = false;
+                document.getElementById('asset-btn').disabled = false;
+            }
+        }
+
+        window.nextTurn = function() {
+            document.getElementById('end-turn-btn').disabled = true;
+            document.getElementById('asset-btn').disabled = true;
+            currentPlayerIdx = (currentPlayerIdx + 1) % players.length;
+            
+            if (players[currentPlayerIdx].isBankrupt) { window.nextTurn(); return; }
+            if(isOnline && isMyTurn() || (isOnline && isHost && players[currentPlayerIdx].isAI) || !isOnline) {
+                syncState();
+                triggerTurn();
+            }
+        }
+
+        window.openAssetManager = function() {
+            const p = players[currentPlayerIdx];
+            if (!p || p.isAI) return;
+            showAssetManager(p, false);
+        }
+
+        function showAssetManager(player, forced = false) {
+            return new Promise(resolve => {
+                const modal = document.getElementById('modal-content');
+                const renderAssets = () => {
+                    const assets = CITIES.filter(c => c.ownerId === player.id);
+                    let listHTML = assets.length === 0 ? `<p style="color:var(--text-light); text-align:center; padding:20px;">旗下无核心资产。</p>` : 
+                        assets.map(c => {
+                            const isM = c.isMortgaged;
+                            const levelDesc = c.type === 'airport' ? '航空枢纽' : (c.level === 4 ? '顶级旅馆' : `${c.level}栋商厦`);
+                            let buttons = isM ? `<button class="btn-action warning full" style="padding:8px" onclick="executeRedeem(${c.idx})">赎回 ($${c.loanAmount})</button>` : 
+                                `<button class="btn-action warning" style="padding:8px;" onclick="executeMortgage(${c.idx})">抵押得 $${getMortgageValue(c)}</button>
+                                 <button class="btn-action danger" style="padding:8px;" onclick="executeSell(${c.idx})">变卖得 $${getSellValue(c)}</button>`;
+                            return `
+                            <div class="asset-item ${isM ? 'mortgaged' : ''}">
+                                <div class="asset-header">
+                                    <div class="asset-title">${c.name} <span style="font-size:0.75rem;">(${levelDesc})</span></div>
+                                    <div class="asset-badges">${isM ? '<span class="badge warning">已抵押</span>' : '<span class="badge success">运营中</span>'}</div>
+                                </div>
+                                <div class="asset-actions">${buttons}</div>
+                            </div>`;
+                        }).join('');
+
+                    const canClose = !forced || player.money >= 0 || !assets.some(a => !a.isMortgaged);
+                    modal.innerHTML = `
+                        <div class="prop-card-header" style="background-color: var(--bg-dark); border-bottom: 2px solid var(--primary);">🏦 财团资产管理中心</div>
+                        <div class="prop-card-body" style="max-height: 400px; overflow-y: auto; padding-top:15px; text-align:left;">
+                            ${forced && player.money < 0 ? `<div style="background:rgba(239,68,68,0.1); padding:12px; border-radius:8px; margin-bottom:15px;"><p style="color:var(--danger); font-weight:bold; margin:0;">资金警报！欠款: $${Math.abs(player.money)}</p></div>` : `<p style="margin-bottom:15px; font-weight:bold; color:var(--primary)">可用现金: $${player.money}</p>`}
+                            ${listHTML}
+                        </div>
+                        <div class="modal-buttons" style="background: var(--bg-dark);">
+                            <button class="btn-action secondary" id="close-asset-btn" ${!canClose ? 'disabled' : ''}>${forced && player.money >= 0 ? '危机解除 (关闭)' : '关闭面板'}</button>
+                        </div>
+                    `;
+
+                    window._currentAssetResolve = resolve; window._currentAssetPlayer = player;
+                    document.getElementById('close-asset-btn').onclick = () => {
+                        document.getElementById('modal-overlay').style.display = 'none';
+                        if(isOnline) syncState();
+                        resolve();
+                    };
+                };
+                renderAssets(); window._renderAssets = renderAssets; 
+                document.getElementById('modal-overlay').style.display = 'flex';
+            });
+        }
+
+        window.executeMortgage = function(cityIdx, manualPlayer = null) {
+            const player = manualPlayer || window._currentAssetPlayer; const city = CITIES[cityIdx]; const loan = getMortgageValue(city);
+            player.money += loan; city.isMortgaged = true; city.loanAmount = loan;
+            addLog(`🏦 ${player.name} 抵押了 [${city.name}]，获得 $${loan}`, 'warning');
+            updateBoardVisuals(); renderPlayersInfo();
+            if (!manualPlayer && window._renderAssets) window._renderAssets();
+        }
+
+        window.executeRedeem = function(cityIdx, manualPlayer = null) {
+            const player = manualPlayer || window._currentAssetPlayer; const city = CITIES[cityIdx];
+            if (player.money >= city.loanAmount) {
+                player.money -= city.loanAmount; city.isMortgaged = false; city.loanAmount = 0;
+                addLog(`💸 ${player.name} 赎回了 [${city.name}]`, 'success');
+                updateBoardVisuals(); renderPlayersInfo();
+                if (!manualPlayer && window._renderAssets) window._renderAssets();
+            } else alert("现金不足！");
+        }
+
+        window.executeSell = function(cityIdx, manualPlayer = null) {
+            const player = manualPlayer || window._currentAssetPlayer; const city = CITIES[cityIdx];
+            if (city.isMortgaged) return; 
+            const value = getSellValue(city); player.money += value; city.ownerId = null; city.level = 0;
+            addLog(`📉 ${player.name} 变卖了 [${city.name}] 所有权益，回笼 $${value}`, 'danger');
+            updateBoardVisuals(); renderPlayersInfo();
+            if (!manualPlayer && window._renderAssets) window._renderAssets();
+        }
+
+        function getBuyHTML(city) {
+            return `<div class="prop-card-header" style="background-color: ${city.color}">${city.name}</div>
+                <div class="prop-card-body">
+                    <div class="rent-row highlight"><span>基础租金</span><span>$${city.rents[0]}</span></div>
+                    <div class="rent-row"><span>建 1 栋商厦</span><span>$${city.rents[1]}</span></div>
+                    <div class="rent-row"><span>建 2 栋商厦</span><span>$${city.rents[2]}</span></div>
+                    <div class="rent-row"><span>建 3 栋商厦</span><span>$${city.rents[3]}</span></div>
+                    <div class="rent-row"><span>建 顶级旅馆</span><span>$${city.rents[4]}</span></div>
+                    <div class="cost-info"><span>单次扩建成本: <strong style="color:var(--primary)">$${city.upgPrice}</strong></span></div>
+                </div>`;
+        }
+
+        function getUpgradeHTML(city, isFree) {
+            const currentRent = city.rents[city.level]; const nextRent = city.rents[city.level + 1]; const nextDesc = (city.level + 1 === 4) ? "顶级旅馆" : `${city.level + 1} 栋商厦`;
+            return `<div class="prop-card-header" style="background-color: ${city.color}">${city.name}</div>
+                <div class="prop-card-body">
+                    <p style="color:var(--text-light); margin-bottom:1.5rem">当前租金为 <strong>$${currentRent}</strong></p>
+                    <div class="rent-row highlight" style="justify-content:center; gap:15px; flex-direction:column;">
+                        <span>升级为 <strong>${nextDesc}</strong></span>
+                        <span style="color:var(--primary); font-size:1.2rem;">收益飙升至 $${nextRent}</span>
+                    </div>
+                    ${isFree ? `<div style="margin-top:15px; color:#fcd34d; font-weight:bold; animation: pulse 2s infinite;">🎫 消耗【免费建房券】，0 费用！</div>` : ''}
+                </div>`;
+        }
+
+        function askActionModal(title, contentHTML, actions) {
+            return new Promise(resolve => {
+                const content = document.getElementById('modal-content');
+                let btnsHTML = actions.map((act, i) => `<button class="${act.class}" id="modal-btn-${i}">${act.text}</button>`).join('');
+                content.innerHTML = `${title ? `<div class="prop-card-header" style="background-color: var(--bg-dark)">${title}</div>` : ''}${contentHTML}<div class="modal-buttons">${btnsHTML}</div>`;
+                document.getElementById('modal-overlay').style.display = 'flex';
+                actions.forEach((act, i) => {
+                    document.getElementById(`modal-btn-${i}`).onclick = () => { document.getElementById('modal-overlay').style.display = 'none'; resolve(act.value); };
+                });
+            });
+        }
+
+        function showBasicModal(title, body, actions) {
+            const content = document.getElementById('modal-content');
+            let btnsHTML = actions.map((act, i) => `<button class="btn-action" id="modal-btn-basic-${i}">${act.text}</button>`).join('');
+            content.innerHTML = `<div class="prop-card-header" style="background-color: var(--bg-dark)">${title}</div><div class="prop-card-body" style="font-size: 1.1rem; color:#fff">${body}</div><div class="modal-buttons">${btnsHTML}</div>`;
+            document.getElementById('modal-overlay').style.display = 'flex';
+            actions.forEach((act, i) => {
+                document.getElementById(`modal-btn-basic-${i}`).onclick = () => { document.getElementById('modal-overlay').style.display = 'none'; act.action(); };
+            });
+        }
+    </script>
+</body>
+</html>
