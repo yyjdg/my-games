@@ -325,8 +325,15 @@
         import { getFirestore, doc, setDoc, getDoc, onSnapshot, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // 防小白白嫖的简单 Base64 混淆 (纯前端架构)
-        const _encConf = "eyJhcGlLZXkiOiJBSXphU3lCOHloaU91ZWljYlV0ejY3NnVGcFdQUklkR0ppYlpmWVEiLCJhdXRoRG9tYWluIjoibXlnYW1lLTI3NWU4LmZpcmViYXNlYXBwLmNvbSIsInByb2plY3RJZCI6Im15Z2FtZS0yNzVlOCIsInN0b3JhZ2VCdWNrZXQiOiJteWdhbWUtMjc1ZTguZmlyZWJhc2VzdG9yYWdlLmFwcCIsIm1lc3NhZ2luZ1NlbmRlcklkIjoiNTU3ODkyNDIzNDkzIiwiYXBwSWQiOiIxOjU1Nzg5MjQyMzQ5Mzp3ZWI6NWZiMzBmYmJiYzUyMzA3YTk5MzgyYyJ9";
-        let firebaseConfig = JSON.parse(atob(_encConf));
+        // 替换为你自己的 Firebase 配置
+        const firebaseConfig = {
+            apiKey: "AIzaSyB8yhiOueicbUtz676uFpWPRIdGJibZFZQ",
+            authDomain: "mygame-275e8.firebaseapp.com",
+            projectId: "mygame-275e8",
+            storageBucket: "mygame-275e8.firebasestorage.app",
+            messagingSenderId: "557892423493",
+            appId: "1:557892423493:web:5fb30fbbbc52307a99382c"
+        };
         
         let appId = "world-monopoly";
         if (typeof __firebase_config !== 'undefined') { firebaseConfig = JSON.parse(__firebase_config); }
