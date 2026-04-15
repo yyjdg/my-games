@@ -31,7 +31,7 @@
             display: flex; 
             flex-direction: column; 
             align-items: center; justify-content: center;
-            height: 100vh; /* 强制锁定一屏高度，拒绝滚动条 */
+            height: 100vh;
             overflow: hidden; 
         }
 
@@ -120,8 +120,10 @@
 
         .mortgage-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.75); display: flex; justify-content: center; align-items: center; font-size: 1.5rem; z-index: 6; pointer-events: none; opacity: 0; transition: opacity 0.3s; backdrop-filter: grayscale(1); }
         .cell.is-mortgaged .mortgage-overlay { opacity: 1; }
-        .owner-border { position: absolute; inset: 0; border: 2px solid transparent; pointer-events: none; z-index: 5; transition: border-color 0.3s; border-radius: 8px; }
-        .cell.has-owner { box-shadow: inset 0 0 20px rgba(0,0,0,0.8); }
+        
+        /* 🔥 UI修复：加粗边框并增强阴影 🔥 */
+        .owner-border { position: absolute; inset: 0; border: 4px solid transparent; pointer-events: none; z-index: 5; transition: border-color 0.3s; border-radius: 8px; }
+        .cell.has-owner { box-shadow: inset 0 0 25px rgba(0,0,0,0.9); }
 
         /* Option Lock Icon */
         .option-lock { position: absolute; top: 18px; right: 4px; font-size: 0.65rem; font-weight: bold; z-index: 4; display: none; background: rgba(245,158,11,0.2); padding: 2px 4px; border-radius: 4px; border: 1px solid var(--primary); color: var(--primary); animation: pulseLock 2s infinite; }
@@ -152,7 +154,7 @@
         /* Logs */
         #game-log { 
             flex: 1; 
-            height: 0; /* 👉 新增这行锁死高度 */
+            height: 0; 
             overflow-y: auto; 
             font-size: 0.85rem; 
             padding: 12px; 
@@ -321,19 +323,15 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, onSnapshot, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        let firebaseConfig = {
-            apiKey: "AIzaSyB8yhiOueicbUtz676uFpWPRIdGJibZFZQ",
-            authDomain: "mygame-275e8.firebaseapp.com",
-            projectId: "mygame-275e8",
-            storageBucket: "mygame-275e8.firebasestorage.app",
-            messagingSenderId: "557892423493",
-            appId: "1:557892423493:web:5fb30fbbbc52307a99382c"
-        };
-        let appId = "world-monopoly";
+        // 🔥 修复 1：使用 Base64 混淆加密配置，防止小白直接白嫖数据库。
+        // （请注意，如果要绝对安全，仍需在 Firebase 控制台设置 Firestore Security Rules）
+        const _encConf = "eyJhcGlLZXkiOiJBSXphU3lCOHloaU91ZWljYlV0ejY3NnVGcFdQUklkR0ppYlpmWVEiLCJhdXRoRG9tYWluIjoibXlnYW1lLTI3NWU4LmZpcmViYXNlYXBwLmNvbSIsInByb2plY3RJZCI6Im15Z2FtZS0yNzVlOCIsInN0b3JhZ2VCdWNrZXQiOiJteWdhbWUtMjc1ZTguZmlyZWJhc2VzdG9yYWdlLmFwcCIsIm1lc3NhZ2luZ1NlbmRlcklkIjoiNTU3ODkyNDIzNDkzIiwiYXBwSWQiOiIxOjU1Nzg5MjQyMzQ5Mzp3ZWI6NWZiMzBmYmJiYzUyMzA3YTk5MzgyYyJ9";
+        let firebaseConfig = JSON.parse(atob(_encConf));
         
+        let appId = "world-monopoly";
         if (typeof __firebase_config !== 'undefined') { firebaseConfig = JSON.parse(__firebase_config); }
         if (typeof __app_id !== 'undefined') { appId = __app_id; }
 
@@ -379,7 +377,7 @@
                 { name: "台北", type: "property", color: COLORS.brown, price: 220, upgPrice: 50, rents: [5, 25, 75, 225, 400] }, // 1
                 { name: "维多利亚港", type: "port" }, // 2
                 { name: "马尼拉", type: "property", color: COLORS.brown, price: 240, upgPrice: 50, rents: [10, 50, 150, 400, 550] }, // 3
-                { name: "亚洲期交所", type: "exchange" }, // 4 (原胡志明市)替换为外圈交易所1
+                { name: "亚洲期交所", type: "exchange" }, // 4 
                 { name: "雅加达", type: "property", color: COLORS.brown, price: 260, upgPrice: 50, rents: [12, 60, 180, 450, 600] }, // 5
                 { name: "命运", type: "fate" }, // 6
                 { name: "虹桥机场", type: "airport", color: COLORS.airport, price: 600 }, // 7
@@ -395,13 +393,13 @@
                 { name: "肯尼迪机场", type: "airport", color: COLORS.airport, price: 750 }, // 17
                 { name: "开罗", type: "property", color: COLORS.orange, price: 500, upgPrice: 200, rents: [35, 150, 450, 1000, 1200] }, // 18
                 { name: "机会", type: "chance" }, // 19
-                { name: "欧洲期交所", type: "exchange" }, // 20 (原罗马)替换为外圈交易所2
+                { name: "欧洲期交所", type: "exchange" }, // 20
                 { name: "慕尼黑", type: "property", color: COLORS.orange, price: 650, upgPrice: 200, rents: [40, 180, 500, 1100, 1300] }, // 21
                 { name: "免费停车", type: "parking" }, // 22
                 { name: "马德里", type: "property", color: COLORS.red, price: 680, upgPrice: 250, rents: [42, 190, 520, 1150, 1350] }, // 23
-                { name: "鹿特丹港", type: "port" }, // 24 (原26，与阿姆斯特丹互换位置，现在与58号港口完美对齐)
+                { name: "鹿特丹港", type: "port" }, // 24 
                 { name: "莫斯科", type: "property", color: COLORS.red, price: 700, upgPrice: 250, rents: [45, 200, 550, 1200, 1400] }, // 25
-                { name: "阿姆斯特丹", type: "property", color: COLORS.red, price: 680, upgPrice: 250, rents: [42, 190, 520, 1150, 1350] }, // 26 (原24)
+                { name: "阿姆斯特丹", type: "property", color: COLORS.red, price: 680, upgPrice: 250, rents: [42, 190, 520, 1150, 1350] }, // 26
                 { name: "巴黎", type: "property", color: COLORS.red, price: 700, upgPrice: 250, rents: [45, 200, 550, 1200, 1400] }, // 27
                 { name: "机会", type: "chance" }, // 28
                 { name: "希思罗机场", type: "airport", color: COLORS.airport, price: 800 }, // 29
@@ -427,7 +425,7 @@
                 { name: "维京群岛", type: "property", color: COLORS.inner1, price: 2000, upgPrice: 800, rents: [150, 700, 2000, 4000, 6000] }, // 47
                 { name: "至尊机会", type: "chance_premium" }, // 48
                 { name: "夏威夷", type: "property", color: COLORS.inner1, price: 2500, upgPrice: 800, rents: [200, 850, 2400, 4500, 7000] }, // 49
-                { name: "华尔街期交所", type: "exchange" }, // 50 (原高盛投行)替换为内圈交易所
+                { name: "华尔街期交所", type: "exchange" }, // 50
                 { name: "皇家高尔夫", type: "golf", price: 5000, upgPrice: 0, rents: [700] }, // 51
                 { name: "拉奈机场", type: "airport", color: COLORS.airport, price: 1500 }, // 52
                 { name: "马达加斯加", type: "property", color: COLORS.inner2, price: 3000, upgPrice: 1000, rents: [250, 1000, 3000, 5500, 8000] }, // 53
@@ -452,7 +450,6 @@
             ];
             CITIES.forEach((c, idx) => { 
                 c.ownerId = null; c.level = 0; c.idx = idx; c.isMortgaged = false; c.loanAmount = 0; 
-                // 期权数据初始化
                 c.optOwner = null; c.optTurns = 0; c.optPrice = 0;
             });
         }
@@ -532,18 +529,13 @@
         
         function getOwner(city) { return city.ownerId !== null ? players.find(p => p.id === city.ownerId) : null; }
         
-        // 🔥 核心升级 1：指数级宏观经济插值计算 🔥
-        // 2. 同步更新宏观经济显示，把界面的“存款乘数”改为显示真实的“最高定存利率”
         function updateEconomicCycle() {
             let props = CITIES.filter(c => isBuyable(c));
             let owned = props.filter(c => c.ownerId !== null).length;
-            let ratio = owned / props.length; // 占用率 0.0 ~ 1.0
+            let ratio = owned / props.length; 
 
-            // 贷款利率：从 5% 飙升至 40% (二次方曲线)
             floatRates.loanRate = 0.05 + 0.35 * Math.pow(ratio, 2);
-            // 存款乘数参数废弃，直接用计算出的最大定存利率 (贷款利率的 80%)
             let maxDepositRate = floatRates.loanRate * 0.8; 
-            // 地皮通胀率：从 1.0x 涨至 2.5x
             floatRates.landPriceMultiplier = 1.0 + 1.5 * Math.pow(ratio, 2);
 
             let cycleName = '平稳', color = '#10b981';
@@ -556,7 +548,6 @@
                 cycleText.innerText = cycleName;
                 cycleText.style.color = color;
                 document.getElementById('econ-loan-text').innerText = (floatRates.loanRate * 100).toFixed(1) + '%';
-                // 修改面板的文字显示
                 document.getElementById('econ-dep-text').innerText = (maxDepositRate * 100).toFixed(1) + '%';
                 document.getElementById('econ-dep-text').previousElementSibling.innerText = "最高定存利率:";
                 document.getElementById('econ-inf-text').innerText = (floatRates.landPriceMultiplier * 100).toFixed(0) + '%';
@@ -569,7 +560,6 @@
                 badge.style.borderColor = color;
                 badge.style.background = `rgba(${color === '#ef4444' ? '239,68,68' : color === '#f59e0b' ? '245,158,11' : '56,189,248'}, 0.2)`;
                 badge.innerText = cycleName;
-                // 更新棋盘中央的提示文字
                 document.getElementById('rate-display').innerText = `定存封顶: ${(maxDepositRate * 100).toFixed(1)}% | 贷款利率: ${(floatRates.loanRate*100).toFixed(1)}%`;
             }
         }
@@ -580,13 +570,11 @@
         function getMortgageValue(city) { return Math.floor(getTotalPropertyValue(city) * 0.60); }
         
         function getGridStyle(i) {
-            // 外圈 13x11 (0-43)
             if (i <= 12) return `grid-column: ${13 - i}; grid-row: 11;`;
             if (i <= 21) return `grid-column: 1; grid-row: ${23 - i};`;
             if (i <= 34) return `grid-column: ${i - 21}; grid-row: 1;`;
             if (i <= 43) return `grid-column: 13; grid-row: ${i - 33};`;
             
-            // 内圈岛屿 9x7 (44-71)
             if (i <= 52) return `grid-column: ${11 - (i - 44)}; grid-row: 9;`;
             if (i <= 57) return `grid-column: 3; grid-row: ${9 - (i - 52)};`;
             if (i <= 66) return `grid-column: ${3 + (i - 58)}; grid-row: 3;`;
@@ -634,7 +622,7 @@
         }
 
         window.joinOnlineRoom = async function() {
-            if (!auth || !db) { alert("⛔ 网络未配置"); return; }
+            if (!auth || !db) { alert("⛔ 网络未配置，或 Firebase 初始化失败"); return; }
             const pwd = document.getElementById('online-password').value.trim();
             const name = document.getElementById('online-name').value.trim();
             const rid = document.getElementById('online-room').value.trim();
@@ -704,6 +692,12 @@
                                 }
                             });
                         }
+                        
+                        // 🔥 修复 2：监听到回合变化时，必须在新玩家端触发回合逻辑 🔥
+                        let turnChanged = false;
+                        if (d.currentPlayerIdx !== undefined && currentPlayerIdx !== d.currentPlayerIdx) {
+                            turnChanged = true;
+                        }
                         currentPlayerIdx = d.currentPlayerIdx;
                         
                         if (d.logs) {
@@ -718,6 +712,11 @@
                         if (!document.getElementById('cell-0')) initBoard();
                         updateBoardVisuals(); updateTokens(); renderPlayersInfo();
                         evaluateControls();
+
+                        // 如果是我（或者是我代管的AI）接手了新回合，我必须跑一遍起手逻辑（利息/作废）
+                        if (turnChanged && (isMyTurn() || (isHost && players[currentPlayerIdx].isAI))) {
+                            triggerTurn();
+                        }
                     }
                 });
             } catch (e) {
@@ -821,7 +820,7 @@
                         cellEl.classList.remove('is-mortgaged');
                     }
 
-                    // 渲染期权UI锁定框
+                    // 🔥 修复 4：期权 UI 锁定框的切换逻辑，确保没期权时一定是实线！
                     const optLock = document.getElementById(`optlock-${i}`);
                     if (city.optOwner !== null && city.ownerId === null) {
                         if(optLock) optLock.style.display = 'block';
@@ -829,7 +828,8 @@
                         document.getElementById(`ownerborder-${i}`).style.borderStyle = 'dashed';
                     } else {
                         if(optLock) optLock.style.display = 'none';
-                        if(city.ownerId === null) document.getElementById(`ownerborder-${i}`).style.borderStyle = 'solid';
+                        // 强制恢复实线
+                        document.getElementById(`ownerborder-${i}`).style.borderStyle = 'solid';
                     }
                 }
             });
@@ -842,7 +842,6 @@
                 const assets = CITIES.filter(c => c.ownerId === p.id);
                 const options = CITIES.filter(c => c.optOwner === p.id && c.ownerId === null);
 
-                // 加总地产贷款 + 抵押存单的贷款
                 let debt = assets.reduce((sum, c) => sum + c.loanAmount, 0);
                 if(p.deposits) debt += p.deposits.reduce((s,d) => s + (d.loanAmount||0), 0);
                 
@@ -893,37 +892,43 @@
         function evaluateControls() {
             if (isGameOver) return;
             const activePl = players[currentPlayerIdx];
+            
+            // 🔥 修复 3：资产按钮常亮。只要你是活着的玩家，任何回合都可以进资产管理！
+            const assetBtn = document.getElementById('asset-btn');
+            if (isOnline) {
+                let myPlayer = players.find(p => p.uid === myUid);
+                assetBtn.disabled = !myPlayer || myPlayer.isBankrupt;
+            } else {
+                assetBtn.disabled = activePl.isAI;
+            }
+
             if (activePl.isAI) {
                 document.getElementById('roll-btn').disabled = true;
-                document.getElementById('asset-btn').disabled = true;
                 document.getElementById('end-turn-btn').disabled = true;
                 document.getElementById('bank-deposit-btn').disabled = true;
                 if (isHost || !isOnline) { setTimeout(handleRoll, 1000); } 
             } else {
                 const canPlay = isMyTurn();
                 document.getElementById('roll-btn').disabled = !canPlay;
-                document.getElementById('asset-btn').disabled = !canPlay;
-                document.getElementById('end-turn-btn').disabled = true;
+                // 确保只有回合结束时才能点结束按钮（在 showEndTurn 里开启）
+                document.getElementById('end-turn-btn').disabled = true; 
                 document.getElementById('bank-deposit-btn').disabled = !canPlay;
             }
         }
 
-        // 🔥 银行业务 - 定期存款 🔥
-        // 1. 修复定存办理逻辑：严格控制利差
         window.openBankDeposit = async function() {
             const p = players[currentPlayerIdx];
             if (!p || p.isAI) return;
             if (isOnline && p.uid !== myUid) return;
 
-            let html = `<p style="color:var(--text-light);margin-bottom:15px;">当前账户余额: <strong style="color:var(--primary)">$${p.money}</strong></p>
+            let html = `<p style="color:var(--text-light);margin-bottom:15px;">当前账户余额: <strong style="color:var(--primary)">$<span id="deposit-balance">${p.money}</span></strong></p>
                         <p style="color:#fff;font-size:0.9rem;">当前基准贷款利率: <span style="color:var(--danger);">${(floatRates.loanRate * 100).toFixed(1)}%</span><br>
                         选择定期存款（遵循银行利差原则，定存利率严格低于贷款）：</p>`;
             
-            // 🔥 修复漏洞：定存利率挂钩贷款利率，且永远打折（银行赚取利差）
             const options = [
-                { amount: 200, turns: 5, rate: floatRates.loanRate * 0.4 },  // 贷款利率的 40%
-                { amount: 500, turns: 10, rate: floatRates.loanRate * 0.6 }, // 贷款利率的 60%
-                { amount: 1000, turns: 15, rate: floatRates.loanRate * 0.8 } // 贷款利率的 80% (最高定存也低于贷款)
+                { amount: 200, turns: 5, rate: floatRates.loanRate * 0.4 },  
+                { amount: 500, turns: 10, rate: floatRates.loanRate * 0.6 }, 
+                { amount: 1000, turns: 15, rate: floatRates.loanRate * 0.8 } 
             ];
             
             options.forEach((opt, idx) => {
@@ -934,12 +939,12 @@
                         <strong style="color:#fff;">$${opt.amount} 定存 (${opt.turns}回合)</strong><br>
                         <span style="font-size:0.8rem; color:var(--secondary);">动态利率: ${(opt.rate * 100).toFixed(1)}% | 每回合分红: $${perTurn}</span>
                     </div>
-                    <button class="btn-action" style="padding:6px 12px; font-size:0.9rem;" onclick="buyDeposit(${idx})" ${p.money >= opt.amount ? '' : 'disabled'}>办理</button>
+                    <button class="btn-action deposit-buy-btn" style="padding:6px 12px; font-size:0.9rem;" onclick="buyDeposit(${idx})" ${p.money >= opt.amount ? '' : 'disabled'}>办理</button>
                 </div>`;
             });
             window._depositOptions = options;
             
-            await askActionModal("🏦 大额定存办理", html, [{ text: "关闭", value: false, class: "btn-action secondary" }]);
+            await askActionModal("🏦 大额定存办理", html, [{ text: "离开银行", value: false, class: "btn-action secondary" }]);
         }
 
         window.buyDeposit = function(idx) {
@@ -951,7 +956,18 @@
                 p.deposits.push({ amount: opt.amount, turnsLeft: opt.turns, rate: opt.rate, isMortgaged: false, loanAmount: 0 });
                 addLog(`🏦 ${p.name} 办理了 $${opt.amount} 的定存，锁定利率 ${(opt.rate*100).toFixed(1)}%。`, 'success');
                 renderPlayersInfo();
-                document.getElementById('modal-overlay').style.display = 'none';
+                
+                const balEl = document.getElementById('deposit-balance');
+                if(balEl) balEl.innerText = p.money;
+
+                const btns = document.querySelectorAll('.deposit-buy-btn');
+                btns.forEach((btn, i) => {
+                    let currentCost = window._depositOptions[i].amount;
+                    if (p.money < currentCost) {
+                        btn.disabled = true;
+                    }
+                });
+
                 if(isOnline) syncState();
             }
         }
@@ -989,47 +1005,43 @@
             if (isGameOver) return;
             const player = players[currentPlayerIdx];
             
-            if (isMyTurn() || (!isOnline && player.isAI) || (isOnline && isHost && player.isAI)) {
-                updateEconomicCycle();
+            updateEconomicCycle();
 
-                if (player.jailTurns && player.jailTurns > 0) {
-                    player.jailTurns--;
-                    addLog(`🚨 ${player.name} 正在服刑，被强制停止行动一回合。`, 'danger');
-                    if (isOnline) syncState();
-                    renderPlayersInfo();
-                    evaluateControls();
-                    showEndTurn();
-                    return;
-                }
-
-                // 🔥 核心升级 2：清算逾期的期权 🔥
-                CITIES.forEach(c => {
-                    if (c.optOwner === player.id && c.ownerId === null) {
-                        c.optTurns--;
-                        if (c.optTurns <= 0) {
-                            c.optOwner = null;
-                            addLog(`📜 ${player.name} 对 [${c.name}] 的看涨期权已逾期作废。`, 'danger');
-                        }
-                    }
-                });
-                // 👉 新增这行，强制清算期货和期权
-                await processDerivatives(player);
-
-                await processDeposits(player);
-                await processInterest(player);
-                
-                if (!player.isBankrupt) {
-                    const hotels = CITIES.filter(c => c.ownerId === player.id && c.type === 'hotel' && !c.isMortgaged);
-                    let profit = hotels.reduce((sum, h) => sum + h.profit, 0);
-                    if (profit > 0) {
-                        player.money += profit;
-                        addLog(`🏨 ${player.name} 名下高端酒店产出利润: +$${profit}`, 'success');
-                    }
-                }
-
-                if (player.isBankrupt) { nextTurn(); return; } 
-                if(isOnline) syncState();
+            if (player.jailTurns && player.jailTurns > 0) {
+                player.jailTurns--;
+                addLog(`🚨 ${player.name} 正在服刑，被强制停止行动一回合。`, 'danger');
+                if (isOnline) syncState();
+                renderPlayersInfo();
+                evaluateControls();
+                showEndTurn();
+                return;
             }
+
+            CITIES.forEach(c => {
+                if (c.optOwner === player.id && c.ownerId === null) {
+                    c.optTurns--;
+                    if (c.optTurns <= 0) {
+                        c.optOwner = null;
+                        addLog(`📜 ${player.name} 对 [${c.name}] 的看涨期权已逾期作废。`, 'danger');
+                    }
+                }
+            });
+            await processDerivatives(player);
+            await processDeposits(player);
+            await processInterest(player);
+            
+            if (!player.isBankrupt) {
+                const hotels = CITIES.filter(c => c.ownerId === player.id && c.type === 'hotel' && !c.isMortgaged);
+                let profit = hotels.reduce((sum, h) => sum + h.profit, 0);
+                if (profit > 0) {
+                    player.money += profit;
+                    addLog(`🏨 ${player.name} 名下高端酒店产出利润: +$${profit}`, 'success');
+                }
+            }
+
+            if (player.isBankrupt) { nextTurn(); return; } 
+            if(isOnline) syncState();
+            
             updateBoardVisuals();
             renderPlayersInfo();
             evaluateControls();
@@ -1038,7 +1050,6 @@
         window.handleRoll = async function() {
             if (isGameOver || (!isMyTurn() && !players[currentPlayerIdx].isAI)) return;
             document.getElementById('roll-btn').disabled = true;
-            document.getElementById('asset-btn').disabled = true;
             document.getElementById('bank-deposit-btn').disabled = true;
 
             const die = Math.floor(Math.random() * 6) + 1;
@@ -1062,6 +1073,7 @@
         }
 
         async function handleLand(player) {
+            // 联机模式下，如果轮到的不是我的回合，我只旁观，不弹窗
             if (isOnline && player.uid !== myUid && !player.isAI) return;
             if (isOnline && player.isAI && !isHost) return; 
 
@@ -1082,7 +1094,6 @@
                 addLog(`🚢 ${player.name} 搭乘免费班轮强制前往 ${destCity.name}`, 'warning'); 
                 updateTokens(); 
             } else if (city.type === 'exchange') {
-                // 👉 新增交易所处理逻辑
                 if (!player.isAI) {
                     await openExchangeCenter();
                 } else {
@@ -1100,7 +1111,6 @@
                 addLog(`🏛️ ${player.name} 获得 [${city.name}] 的红利发放：+$${city.reward}`, 'success');
             } else if (isBuyable(city)) {
                 if (city.ownerId !== null) {
-                    // 已有归属
                     if (city.ownerId !== player.id) {
                         let rent = 0;
                         if (city.type === 'airport') {
@@ -1148,7 +1158,6 @@
                         }
                     }
                 } else {
-                    // 🔥 核心升级 2：期权与并购逻辑 🔥
                     if (city.optOwner !== null && city.optOwner !== player.id) {
                         addLog(`🔒 [${city.name}] 正被 ${players[city.optOwner].name} 锁定交易。`, 'warning');
                     } else {
@@ -1194,7 +1203,7 @@
                     addLog(`🎲 ${player.name} 准备进行额外一轮的投掷！`, 'success');
                     if(isOnline) syncState();
                     if (player.isAI) { setTimeout(handleRoll, 1500); }
-                    else { document.getElementById('roll-btn').disabled = false; document.getElementById('asset-btn').disabled = false; }
+                    else { document.getElementById('roll-btn').disabled = false; }
                     return; 
                 }
             } else if (city.type === 'tojail') {
@@ -1210,12 +1219,14 @@
             player.money -= price; city.ownerId = player.id; city.optOwner = null; city.optTurns = 0;
             addLog(`🤝 ${player.name} 花费 $${price} 将 [${city.name}] 纳入麾下`, 'success');
             updateBoardVisuals(); renderPlayersInfo();
+            if(isOnline) syncState();
         }
 
         window.executeBuyOption = function(player, city, cost, lockedPrice) {
             player.money -= cost; city.optOwner = player.id; city.optPrice = lockedPrice; city.optTurns = 10;
             addLog(`📝 ${player.name} 订购了 [${city.name}] 的看涨期权，买入价死锁于 $${lockedPrice}`, 'warning');
             updateBoardVisuals(); renderPlayersInfo();
+            if(isOnline) syncState();
         }
 
         async function deductMoney(player, amount, creditor = null) {
@@ -1308,6 +1319,7 @@
             player.money -= cost; city.level += 1;
             addLog(`🏗️ ${player.name} 将 [${city.name}] 扩建至 ${city.level===4?'顶级旅馆':city.level+'栋商厦'}！`, 'success');
             updateBoardVisuals(); renderPlayersInfo();
+            if(isOnline) syncState();
         }
 
         function showEndTurn() {
@@ -1317,23 +1329,28 @@
                 if(!isOnline || isHost) setTimeout(window.nextTurn, 1000);
             } else if (isMyTurn()) {
                 document.getElementById('end-turn-btn').disabled = false;
-                document.getElementById('asset-btn').disabled = false;
             }
+            evaluateControls(); // 重新验证所有按钮的可用状态
         }
 
+        // 🔥 修复 2：联机回合锁定逻辑 🔥
         window.nextTurn = function() {
             document.getElementById('end-turn-btn').disabled = true;
-            document.getElementById('asset-btn').disabled = true;
+            
             currentPlayerIdx = (currentPlayerIdx + 1) % players.length;
             
             if (players[currentPlayerIdx].isBankrupt) { window.nextTurn(); return; }
-            if(isOnline && isMyTurn() || (isOnline && isHost && players[currentPlayerIdx].isAI) || !isOnline) {
-                syncState();
+            
+            // 重要：无论是否轮到我，只要我是点击“结束”的人，立刻把最新的下标同步给云端
+            if (isOnline) syncState();
+            
+            // 只有当接盘的是我（或我是房主代管AI），才在本地触发回合起手逻辑
+            if(!isOnline || isMyTurn() || (isOnline && isHost && players[currentPlayerIdx].isAI)) {
                 triggerTurn();
             }
         }
 
-        // 🔥 核心升级 3：带选项卡的全新资产面板 🔥
+        // 🔥 修复 3：资产操作面容许回合外点开 🔥
         window.currentAssetTab = 'real';
         window.switchAssetTab = function(tab) {
             window.currentAssetTab = tab;
@@ -1341,8 +1358,13 @@
         }
 
         window.openAssetManager = function() {
-            const p = players[currentPlayerIdx];
-            if (!p || p.isAI) return;
+            let p = null;
+            if (isOnline) {
+                p = players.find(pl => pl.uid === myUid);
+            } else {
+                p = players[currentPlayerIdx];
+            }
+            if (!p || p.isAI || p.isBankrupt) return;
             showAssetManager(p, false);
         }
 
@@ -1400,7 +1422,6 @@
                                     </div>`;
                                 }).join('');
                             }
-                            // 渲染衍生品
                             if (derivs.length > 0) {
                                 let currentIndex = Math.floor(floatRates.landPriceMultiplier * 1000);
                                 listHTML += `<h4 style="color:var(--primary); border-bottom:1px solid rgba(255,255,255,0.1); margin-top:15px; padding-bottom:5px;">通胀指数衍生品 (现价:${currentIndex})</h4>`;
@@ -1496,6 +1517,7 @@
             addLog(`🏦 ${player.name} 抵押了 [${city.name}]，获得贷款 $${loan}`, 'warning');
             updateBoardVisuals(); renderPlayersInfo();
             if (!manualPlayer && window._renderAssets) window._renderAssets();
+            if (isOnline) syncState();
         }
 
         window.executeRedeem = function(cityIdx, manualPlayer = null) {
@@ -1505,6 +1527,7 @@
                 addLog(`💸 ${player.name} 赎回了 [${city.name}]`, 'success');
                 updateBoardVisuals(); renderPlayersInfo();
                 if (!manualPlayer && window._renderAssets) window._renderAssets();
+                if (isOnline) syncState();
             } else alert("现金不足！");
         }
 
@@ -1515,17 +1538,19 @@
             addLog(`📉 ${player.name} 变卖了 [${city.name}] 所有权益，回笼 $${value}`, 'danger');
             updateBoardVisuals(); renderPlayersInfo();
             if (!manualPlayer && window._renderAssets) window._renderAssets();
+            if (isOnline) syncState();
         }
 
         // --- 存单金融资产操作 ---
         window.executeDepositMortgage = function(depIdx, manualPlayer = null) {
             const player = manualPlayer || window._currentAssetPlayer; 
             const dep = player.deposits[depIdx];
-            const loan = Math.floor(dep.amount * 0.75); // 75% 抵押率
+            const loan = Math.floor(dep.amount * 0.75); 
             player.money += loan; dep.isMortgaged = true; dep.loanAmount = loan;
             addLog(`🏦 ${player.name} 将 $${dep.amount} 定存单进行优质抵押，获得流动资金 $${loan}`, 'warning');
             renderPlayersInfo();
             if (!manualPlayer && window._renderAssets) window._renderAssets();
+            if (isOnline) syncState();
         }
 
         window.executeDepositRedeem = function(depIdx, manualPlayer = null) {
@@ -1536,6 +1561,7 @@
                 addLog(`💸 ${player.name} 结清了定存单的抵押贷款`, 'success');
                 renderPlayersInfo();
                 if (!manualPlayer && window._renderAssets) window._renderAssets();
+                if (isOnline) syncState();
             } else alert("现金不足以偿还存款抵押！");
         }
 
@@ -1543,12 +1569,13 @@
             const player = manualPlayer || window._currentAssetPlayer; 
             const dep = player.deposits[depIdx];
             if (dep.isMortgaged) return; 
-            const value = Math.floor(dep.amount * 0.85); // 85% 违约收回
+            const value = Math.floor(dep.amount * 0.85); 
             player.money += value; 
             player.deposits.splice(depIdx, 1);
             addLog(`📉 ${player.name} 提前违约抛售定存单，仅收回 85% 本金 ($${value})`, 'danger');
             renderPlayersInfo();
             if (!manualPlayer && window._renderAssets) window._renderAssets();
+            if (isOnline) syncState();
         }
 
         // --- 期权合约操作 ---
@@ -1562,12 +1589,10 @@
         }
 
         // ================= 衍生品交易所核心系统 =================
-        // ================= 衍生品交易所核心系统 =================
         window.openExchangeCenter = async function() {
             const p = players[currentPlayerIdx];
             let currentIndex = Math.floor(floatRates.landPriceMultiplier * 1000);
             
-            // ✅ 新增了 <span id="exchange-balance"> 用于动态显示余额
             let html = `
                 <p style="color:var(--text-light);margin-bottom:10px;">可用资金: <strong style="color:var(--primary)">$<span id="exchange-balance">${p.money}</span></strong></p>
                 <p style="color:#fff;">当前全球通胀指数: <strong style="color:var(--danger); font-size:1.2rem;">${currentIndex}</strong> 点</p>
@@ -1611,13 +1636,11 @@
                     margin: opt.margin || 0, cost: opt.cost || 0, strike: opt.strike || 0, turnsLeft: opt.turns || 0
                 });
                 addLog(`📊 ${p.name} 在交易所斥资 $${cost} 建仓了 [${opt.name}]。`, 'warning');
-                renderPlayersInfo(); // 刷新侧边栏
+                renderPlayersInfo(); 
                 
-                // ✅ 动态更新弹窗内的余额显示
                 const balEl = document.getElementById('exchange-balance');
                 if(balEl) balEl.innerText = p.money;
 
-                // ✅ 动态扫描所有建仓按钮，如果余额不够了就置灰，防止买成负数
                 const btns = document.querySelectorAll('.exchange-buy-btn');
                 btns.forEach((btn, i) => {
                     let currentCost = window._derivOptions[i].margin || window._derivOptions[i].cost;
@@ -1638,7 +1661,7 @@
                 let d = player.derivatives[i];
                 if (d.type === 'long' || d.type === 'short') {
                     let pnl = d.type === 'long' ? (currentIndex - d.entryIndex) : (d.entryIndex - currentIndex);
-                    if (d.margin + pnl <= 0) { // 爆仓触发
+                    if (d.margin + pnl <= 0) { 
                         addLog(`💥 强制平仓！${player.name} 的 [${d.name}] 因波动过大，保证金归零，合约已被清算！`, 'danger');
                         player.derivatives.splice(i, 1);
                     }
