@@ -1090,9 +1090,14 @@
                 if (player.pos <= 43) {
                     player.pos++;
                     if (player.pos > 43) { player.pos = 0; player.money += 200; addLog(`${player.name} 经过外圈起点，获得 $200`, 'success'); renderPlayersInfo(); }
-                } else {
-                    player.pos++;
-                    if (player.pos > 71) { player.pos = 44; player.money += 100; addLog(`${player.name} 环游内圈群岛一周，特别注资 $100`, 'success'); renderPlayersInfo(); }
+                } } else {
+                player.pos++;
+                    if (player.pos > 71) { 
+                        // 🌟 核心修改：突破内圈界限，走完直接回到大陆的维多利亚港 (idx: 2)
+                        player.pos = 2; 
+                        addLog(`🚢 ${player.name} 结束了内圈海岛之旅，乘船返回大陆 [维多利亚港]！`, 'warning'); 
+                        renderPlayersInfo(); 
+                    }
                 }
                 updateTokens();
                 await new Promise(r => setTimeout(r, 150));
