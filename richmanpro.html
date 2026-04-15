@@ -728,7 +728,7 @@
                         document.getElementById('setup-screen').style.display = 'none';
                         document.getElementById('network-indicator').style.display = 'block';
                         
-                        if (!document.getElementById('cell-0')) initBoard();
+                        if (!document.getElementById('cell-0')) initBoard();updateEconomicCycle(); // 🌍 关键修复 1：每次收到云端数据，立刻重新计算大盘通胀和利率！
                         updateBoardVisuals(); updateTokens(); renderPlayersInfo();
                         evaluateControls();
 
@@ -1154,8 +1154,12 @@
                         } else {
                             rent = city.rents[0];
                         }
+                        
+                        // 🌍 关键修复 4：租金结算直接乘上通胀系数，后期一发入魂！
+                        rent = Math.floor(rent * floatRates.landPriceMultiplier); 
+                        
                         const owner = getOwner(city);
-                        addLog(`${player.name} 进入 ${owner.name} 的地盘，支付租金 $${rent}`, 'warning');
+                        addLog(`${player.name} 进入 ${owner.name} 的地盘，支付租金 $${rent} ${floatRates.landPriceMultiplier > 1 ? '(含通胀溢价)' : ''}`, 'warning');
                         await deductMoney(player, rent, owner);
                     } else {
                         let lp = getLivePlayer(player);
@@ -1257,6 +1261,9 @@
             const p = getLivePlayer(playerRef);
             p.money -= price; city.ownerId = p.id; city.optOwner = null; city.optTurns = 0;
             addLog(`🤝 ${p.name} 花费 $${price} 将 [${city.name}] 纳入麾下`, 'success');
+            
+            updateEconomicCycle(); // 🌍 关键修复 2：买地导致地源减少，通胀飙升！
+            
             updateBoardVisuals(); renderPlayersInfo();
             if(isOnline) syncState();
         }
@@ -1576,6 +1583,9 @@
             if (city.isMortgaged) return; 
             const value = getSellValue(city); player.money += value; city.ownerId = null; city.level = 0;
             addLog(`📉 ${player.name} 变卖了 [${city.name}] 所有权益，回笼 $${value}`, 'danger');
+            
+            updateEconomicCycle(); // 🌍 关键修复 3：资产变卖，经济降温，利率下调！
+            
             updateBoardVisuals(); renderPlayersInfo();
             if (!manualPlayer && window._renderAssets) window._renderAssets();
             if (isOnline) syncState();
