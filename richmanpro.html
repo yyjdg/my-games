@@ -1091,7 +1091,7 @@
                     player.pos++;
                     if (player.pos > 43) { player.pos = 0; player.money += 200; addLog(`${player.name} 经过外圈起点，获得 $200`, 'success'); renderPlayersInfo(); }
                 } } else {
-                player.pos++;
+                    player.pos++;
                     if (player.pos > 71) { 
                         // 🌟 核心修改：突破内圈界限，走完直接回到大陆的维多利亚港 (idx: 2)
                         player.pos = 2; 
