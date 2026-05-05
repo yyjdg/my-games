@@ -1,0 +1,1074 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>3D 滚动木块 - 终极折返与雷区版</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #030305;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: white;
+            user-select: none;
+        }
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+            display: block;
+        }
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 30px;
+            box-sizing: border-box;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+        .title-box {
+            background: linear-gradient(135deg, rgba(20, 25, 30, 0.9), rgba(5, 5, 8, 0.9));
+            padding: 15px 30px;
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(102, 252, 241, 0.3);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+            pointer-events: auto;
+        }
+        h1 { margin: 0 0 5px 0; font-size: 26px; color: #66fcf1; letter-spacing: 1px;}
+        .subtitle { margin: 0; font-size: 13px; color: #c5c6c7; text-transform: uppercase; letter-spacing: 2px;}
+        
+        #level-select-container {
+            margin-top: 12px;
+        }
+        #level-select {
+            background: rgba(11, 12, 16, 0.9);
+            color: #66fcf1;
+            border: 1px solid #45a29e;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 14px;
+            cursor: pointer;
+            outline: none;
+            width: 100%;
+        }
+        
+        #level-indicator {
+            font-size: 22px;
+            font-weight: bold;
+            background: rgba(69, 162, 158, 0.95);
+            color: #fff;
+            padding: 10px 25px;
+            border-radius: 30px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.8);
+            letter-spacing: 1px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .min-steps {
+            font-size: 13px;
+            font-weight: bold;
+            color: #ef4444;
+            margin-top: 4px;
+        }
+        .current-steps {
+            font-size: 12px;
+            color: #e0e7ff;
+            margin-top: 2px;
+        }
+
+        #message-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 40px;
+            font-weight: bold;
+            text-align: center;
+            background: rgba(5, 5, 8, 0.95);
+            padding: 40px 80px;
+            border-radius: 20px;
+            border: 2px solid #66fcf1;
+            box-shadow: 0 15px 60px rgba(102,252,241,0.3);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            color: #fff;
+            z-index: 10;
+        }
+        
+        .message-sub {
+            font-size: 18px;
+            color: #9ca3af;
+            font-weight: normal;
+            letter-spacing: 1px;
+        }
+
+        @keyframes shake {
+            0% { transform: translate(2px, 2px) rotate(0deg); }
+            20% { transform: translate(-2px, -2px) rotate(-1deg); }
+            40% { transform: translate(-3px, 2px) rotate(1deg); }
+            60% { transform: translate(3px, -1px) rotate(0deg); }
+            80% { transform: translate(1px, 2px) rotate(1deg); }
+            100% { transform: translate(-1px, -2px) rotate(-1deg); }
+        }
+        .shaking {
+            animation: shake 0.3s;
+            animation-iteration-count: 1;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+
+    <div id="canvas-container"></div>
+
+    <div id="ui-layer">
+        <div class="header">
+            <div class="title-box">
+                <h1>Bloxorz 3D</h1>
+                <p class="subtitle">Backtracking Hell Engine</p>
+                <div id="level-select-container">
+                    <select id="level-select"></select>
+                </div>
+            </div>
+            <div id="level-indicator">
+                <span id="lvl-text">Level 1</span>
+                <span id="min-steps-text" class="min-steps">极限破局: - 步</span>
+                <span id="current-steps-text" class="current-steps">已走步数: 0</span>
+            </div>
+        </div>
+
+        <div id="message-overlay">
+            <span id="main-msg" style="color: #f87171;">坠入虚空</span>
+            <span id="sub-msg" class="message-sub">按 Space 重试</span>
+        </div>
+    </div>
+
+<script>
+    const cachedLevels = {};
+    let playerStepCount = 0;
+
+    function updateLevelSelectUI() {
+        let select = document.getElementById('level-select');
+        if (select.options.length === 0) {
+            for (let i = 0; i < 100; i++) {
+                let opt = document.createElement('option');
+                opt.value = i;
+                opt.innerText = "地狱关卡 " + (i + 1) + (i >= 50 ? " (深渊折返)" : "");
+                select.appendChild(opt);
+            }
+            select.addEventListener('change', (e) => {
+                let targetLvl = parseInt(e.target.value);
+                loadLevel(targetLvl);
+            });
+        }
+        select.value = currentLevelIndex;
+    }
+
+    // === 核心：图论生成树 (更碎、更多死胡同，告别黄砖导航) ===
+    function createTreeIslands(size, levelIndex) {
+        let grid = Array(size).fill(0).map(()=>Array(size).fill('0'));
+        // 增加岛屿数量，减小单岛面积，形成更复杂的迷宫网络
+        let numIslands = Math.min(20, 5 + Math.floor(levelIndex / 4)); 
+        let islands = [];
+        
+        for(let i=0; i<numIslands; i++) {
+            let w = Math.floor(Math.random()*3) + 2; // 2x2 到 4x4 的破碎板块
+            let h = Math.floor(Math.random()*3) + 2;
+            let x = Math.floor(Math.random()*(size-w-2)) + 1;
+            let z = Math.floor(Math.random()*(size-h-2)) + 1;
+            islands.push({id: i, cx: Math.floor(x+w/2), cz: Math.floor(z+h/2), x, z, w, h});
+            for(let r=z; r<z+h; r++) for(let c=x; c<x+w; c++) grid[r][c] = '1';
+        }
+
+        // 用最小生成树逻辑连接它们
+        let connected = new Set([0]);
+        while(connected.size < numIslands) {
+            let bestDist = Infinity, bestFrom = -1, bestTo = -1;
+            for(let i of connected) {
+                for(let j=0; j<numIslands; j++) {
+                    if(!connected.has(j)) {
+                        let d = Math.abs(islands[i].cx - islands[j].cx) + Math.abs(islands[i].cz - islands[j].cz);
+                        if(d < bestDist) { bestDist = d; bestFrom = i; bestTo = j; }
+                    }
+                }
+            }
+            connected.add(bestTo);
+            let px = islands[bestFrom].cx, pz = islands[bestFrom].cz;
+            let tx = islands[bestTo].cx, tz = islands[bestTo].cz;
+            while(px !== tx) { grid[pz][px] = '1'; px += (px < tx ? 1 : -1); }
+            while(pz !== tz) { grid[pz][px] = '1'; pz += (pz < tz ? 1 : -1); }
+        }
+
+        // 随机增加 1~3 条回路
+        let numCycles = 1 + Math.floor(Math.random()*3);
+        for(let i=0; i<numCycles; i++) {
+            let a = Math.floor(Math.random() * numIslands);
+            let b = Math.floor(Math.random() * numIslands);
+            if(a !== b) {
+                let px = islands[a].cx, pz = islands[a].cz;
+                let tx = islands[b].cx, tz = islands[b].cz;
+                while(px !== tx) { grid[pz][px] = '1'; px += (px < tx ? 1 : -1); }
+                while(pz !== tz) { grid[pz][px] = '1'; pz += (pz < tz ? 1 : -1); }
+            }
+        }
+        return { grid, islands };
+    }
+
+    // === 终极状态机图论生成引擎 ===
+    function generateProceduralLevel(levelIndex) {
+        let size = Math.min(32, 14 + Math.floor(levelIndex / 3)); 
+        let bestCandidate = null;
+        let maxComplexity = 0;
+        let maxAttempts = 35; // 提高尝试次数以寻找复杂机关解
+
+        for (let attempt = 0; attempt < maxAttempts; attempt++) {
+            let geo = createTreeIslands(size, levelIndex);
+            let grid = geo.grid;
+            
+            let allOnes = [];
+            for(let z=0; z<size; z++) for(let x=0; x<size; x++) if(grid[z][x]==='1') allOnes.push({x,z});
+            if(allOnes.length < 25) continue;
+
+            let s = allOnes[Math.floor(Math.random()*allOnes.length)];
+            let h = allOnes[0], maxDist = 0;
+            for(let pt of allOnes) {
+                let d = Math.abs(pt.x-s.x) + Math.abs(pt.z-s.z);
+                if(d > maxDist) { maxDist = d; h = pt; }
+            }
+
+            grid[h.z][h.x] = 'H';
+            grid[s.z][s.x] = 'S';
+
+            let switches = [], bridges = [], traps = [];
+            let currentPath = fastStateBFS(grid, s, h, switches, bridges, traps, size);
+            if (!currentPath) continue;
+
+            let pathHistory = [currentPath];
+
+            // 1. 强制长途折返桥梁 (数量翻倍)
+            let numBridgesTarget = Math.min(16, 2 + Math.floor(levelIndex / 2)); 
+            for(let b=0; b<numBridgesTarget; b++) {
+                if(currentPath.length < 10) break;
+                let idx = Math.floor(currentPath.length * (0.1 + 0.7 * Math.random()));
+                let brSt = currentPath[idx];
+                let bPts = getFootprints(brSt.x, brSt.z, brSt.o);
+                
+                let safe = true;
+                if (bPts.some(pt => grid[pt.z][pt.x] !== '1')) safe = false;
+                for(let j=0; j<idx; j++) {
+                    let pts = getFootprints(currentPath[j].x, currentPath[j].z, currentPath[j].o);
+                    if(pts.some(pt => bPts.some(bb => bb.x===pt.x && bb.z===pt.z))) safe = false;
+                }
+                if(!safe) continue;
+
+                let originalVals = bPts.map(pt => grid[pt.z][pt.x]);
+                bPts.forEach(pt => grid[pt.z][pt.x] = '0');
+                let testPath = fastStateBFS(grid, s, h, switches, bridges, traps, size);
+                bPts.forEach((pt, idx) => grid[pt.z][pt.x] = originalVals[idx]);
+
+                if (!testPath) {
+                    let swCands = allOnes.filter(pt => grid[pt.z][pt.x]==='1' && 
+                        !switches.some(sw=>sw.x===pt.x&&sw.z===pt.z) && 
+                        !bPts.some(bb=>bb.x===pt.x&&bb.z===pt.z) &&
+                        !(pt.x===s.x&&pt.z===s.z) && !(pt.x===h.x&&pt.z===h.z));
+                    
+                    swCands.sort(() => Math.random() - 0.5); 
+
+                    let placed = false;
+                    for(let sw of swCands) {
+                        let bId = bridges.length;
+                        bPts.forEach(pt => { bridges.push({x: pt.x, z: pt.z, id: bId, active: false}); });
+                        switches.push({ x: sw.x, z: sw.z, type: Math.random()>0.5?'HARD_TOGGLE':'SOFT_TOGGLE', targetId: bId });
+                        
+                        bPts.forEach(pt => grid[pt.z][pt.x] = 'B'); 
+
+                        let pBridge = fastStateBFS(grid, s, h, switches, bridges, traps, size);
+                        // 放宽折返门槛，只要能折返几步就算成功，保证机关能密集铺设下去
+                        let requiredExtra = 4 + Math.floor(levelIndex / 6); 
+                        if (pBridge && pBridge.length > currentPath.length + requiredExtra) {
+                            currentPath = pBridge;
+                            pathHistory.push(pBridge);
+                            placed = true;
+                            break;
+                        } else {
+                            switches.pop();
+                            for(let k=0; k<bPts.length; k++) bridges.pop();
+                            bPts.forEach(pt => grid[pt.z][pt.x] = '1'); 
+                        }
+                    }
+                    if(!placed) bPts.forEach((pt, idx) => grid[pt.z][pt.x] = '1');
+                }
+            }
+
+            // 2. 双通道红圈诱饵 (数量翻倍)
+            let numTrapsTarget = Math.min(8, 1 + Math.floor(levelIndex / 3));
+            for(let t=0; t<numTrapsTarget; t++) {
+                if(currentPath.length < 12) break;
+                for (let i = Math.floor(currentPath.length * 0.4); i < currentPath.length - 2; i++) {
+                    let stTarget = currentPath[i];
+                    if (stTarget.o === 'UPRIGHT') {
+                        let T = {x: stTarget.x, z: stTarget.z};
+                        if (T.x===s.x && T.z===s.z || T.x===h.x && T.z===h.z) continue;
+                        
+                        grid[T.z][T.x] = '0';
+                        let pLong = fastStateBFS(grid, s, h, switches, bridges, traps, size);
+                        grid[T.z][T.x] = '1';
+
+                        if (pLong && pLong.length > currentPath.length + 8) {
+                            let pShortSet = new Set(currentPath.map(st => `${st.x},${st.z}`));
+                            let rCands = pLong.filter(st => st.o === 'UPRIGHT' && !pShortSet.has(`${st.x},${st.z}`) && grid[st.z][st.x]==='1');
+                            
+                            if (rCands.length > 0) {
+                                let R = rCands[Math.floor(Math.random() * rCands.length)];
+                                traps.push({ x: R.x, z: R.z, tx: T.x, tz: T.z, triggered: false });
+                                pathHistory.push(pLong); 
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 3. 0废料修剪与适度缓冲
+            let finalGrid = Array(size).fill(0).map(() => Array(size).fill('0'));
+            let essentialPts = new Set();
+            for(let p of pathHistory) {
+                for(let st of p) {
+                    let pts = getFootprints(st.x, st.z, st.o);
+                    for(let pt of pts) {
+                        finalGrid[pt.z][pt.x] = grid[pt.z][pt.x];
+                        essentialPts.add(`${pt.x},${pt.z}`);
+                    }
+                }
+            }
+
+            // 降低废弃区域保留率，不再是一大坨，而是维持迷宫感
+            let retentionRate = Math.min(0.6, 0.2 + levelIndex * 0.015);
+            for(let z=1; z<size-1; z++){
+                for(let x=1; x<size-1; x++){
+                    if (grid[z][x] === '1' && !essentialPts.has(`${x},${z}`)) {
+                        if (essentialPts.has(`${x+1},${z}`) || essentialPts.has(`${x-1},${z}`) || essentialPts.has(`${x},${z+1}`) || essentialPts.has(`${x},${z-1}`)) {
+                            if (Math.random() < retentionRate) {
+                                finalGrid[z][x] = '1'; 
+                            }
+                        }
+                    }
+                }
+            }
+
+            traps.forEach(t => { finalGrid[t.z][t.x] = grid[t.z][t.x]; finalGrid[t.tz][t.tx] = grid[t.tz][t.tx]; });
+            bridges.forEach(b => { finalGrid[b.z][b.x] = 'B'; });
+            switches.forEach(sw => { finalGrid[sw.z][sw.x] = grid[sw.z][sw.x]; });
+            finalGrid[h.z][h.x] = 'H';
+            finalGrid[s.z][s.x] = 'S';
+
+            // 4. 黄砖小幅增加 (增加点缀密度)
+            let allFinalOnes = [];
+            for(let z=0; z<size; z++) for(let x=0; x<size; x++) if(finalGrid[z][x]==='1') allFinalOnes.push({x,z});
+            allFinalOnes.sort(() => Math.random() - 0.5);
+
+            let cY = 0;
+            // 适当调高黄砖上限，增加腾挪难度
+            let targetY = Math.min(15, 2 + Math.floor(levelIndex / 4)); 
+            
+            for(let pt of allFinalOnes) {
+                if(cY >= targetY) break;
+                if(pt.x===s.x&&pt.z===s.z || pt.x===h.x&&pt.z===h.z) continue;
+                if(switches.some(sw=>sw.x===pt.x&&sw.z===pt.z)) continue;
+                if(traps.some(tr=>tr.x===pt.x&&tr.z===pt.z || tr.tx===pt.x&&tr.tz===pt.z)) continue;
+
+                finalGrid[pt.z][pt.x] = 'F'; 
+                let testPath = fastStateBFS(finalGrid, s, h, switches, bridges, traps, size);
+                if (testPath) { 
+                    cY++; 
+                    currentPath = testPath; 
+                } 
+                else { finalGrid[pt.z][pt.x] = '1'; } 
+            }
+
+            // 评价时更看重路程复杂度和机关密度，而不是黄砖
+            let score = currentPath.length + (switches.length * 10) + (traps.length * 8);
+            if (score > maxComplexity) {
+                maxComplexity = score;
+                bestCandidate = { map: finalGrid, minSteps: currentPath.length-1, switches: formatSwitches(switches, traps, bridges) };
+            }
+        }
+
+        if (bestCandidate) return cropMap(bestCandidate.map, bestCandidate.minSteps, size, bestCandidate.switches);
+        
+        let fallbackGrid = ["00111100", "01111110", "11S1F111", "111111H1", "011F1111", "00111100"].map(r => r.split(''));
+        return { map: fallbackGrid, minSteps: 20, switches: [] };
+    }
+
+    // === 极速 $O(1)$ 哈希优化的状态机寻路 ===
+    function fastStateBFS(grid, s, h, switches, bridges, traps, size) {
+        let bridgeGrid = Array(size).fill(0).map(()=>Array(size).fill(-1));
+        let switchMap = {}; 
+        bridges.forEach(b => bridgeGrid[b.z][b.x] = b.id);
+        switches.forEach((sw, idx) => { 
+            switchMap[`${sw.x},${sw.z}`] = {idx: idx, type: sw.type}; 
+        });
+        let bridgeToSwitch = {};
+        switches.forEach((sw, idx) => { bridgeToSwitch[sw.targetId] = idx; });
+        
+        let trapGrid = Array(size).fill(0).map(()=>Array(size).fill(-1));
+        let trapTargetMask = Array(size).fill(0).map(()=>Array(size).fill(0));
+        traps.forEach((tr, idx) => {
+            trapGrid[tr.z][tr.x] = idx;
+            trapTargetMask[tr.tz][tr.tx] |= (1<<idx);
+        });
+
+        let q = [{x: s.x, z: s.z, o: 'UPRIGHT', bMask: 0, tMask: 0, path: [{x: s.x, z: s.z, o: 'UPRIGHT'}]}];
+        let vis = new Set();
+        vis.add(`${s.x},${s.z},UPRIGHT,0,0`);
+
+        let iterations = 0;
+        while(q.length > 0) {
+            iterations++;
+            if (iterations > 350000) return null; 
+            let curr = q.shift();
+            if(curr.x === h.x && curr.z === h.z && curr.o === 'UPRIGHT') return curr.path;
+
+            let moves = getValidMoves(curr.x, curr.z, curr.o, size);
+            for(let m of moves) {
+                let pts = getFootprints(m.x, m.z, m.o);
+                let valid = true;
+                let nbMask = curr.bMask, ntMask = curr.tMask;
+
+                for(let p of pts) {
+                    if (p.x<0 || p.x>=size || p.z<0 || p.z>=size) { valid = false; break; }
+                    let cell = grid[p.z][p.x];
+                    
+                    if ((trapTargetMask[p.z][p.x] & ntMask) !== 0) { valid = false; break; }
+
+                    if (cell === '0') { valid = false; break; }
+                    if (cell === 'F' && m.o === 'UPRIGHT') { valid = false; break; }
+                    if (cell === 'B') {
+                        let bId = bridgeGrid[p.z][p.x];
+                        let swIdx = bridgeToSwitch[bId];
+                        if (swIdx !== undefined && (nbMask & (1<<swIdx))) {
+                        } else {
+                            valid = false; break; 
+                        }
+                    }
+                }
+                if (!valid) continue;
+
+                for(let p of pts) {
+                    let swData = switchMap[`${p.x},${p.z}`];
+                    if (swData) {
+                        if (swData.type === 'SOFT_TOGGLE' || (swData.type === 'HARD_TOGGLE' && m.o === 'UPRIGHT')) {
+                            nbMask ^= (1<<swData.idx);
+                        }
+                    }
+                    let tIdx = trapGrid[p.z][p.x];
+                    if (tIdx !== -1) ntMask |= (1<<tIdx);
+                }
+
+                let key = `${m.x},${m.z},${m.o},${nbMask},${ntMask}`;
+                if (!vis.has(key)) {
+                    vis.add(key);
+                    q.push({x: m.x, z: m.z, o: m.o, bMask: nbMask, tMask: ntMask, path: [...curr.path, {x: m.x, z: m.z, o: m.o}]});
+                }
+            }
+        }
+        return null; 
+    }
+
+    function formatSwitches(switches, traps, bridges) {
+        let formatted = [];
+        switches.forEach((sw, idx) => {
+            let bTargets = bridges.filter(b => b.id === sw.targetId).map(b => ({x: b.x, z: b.z}));
+            formatted.push({ x: sw.x, z: sw.z, type: sw.type, targets: bTargets, isCurrentlyPressed: false, state: false });
+        });
+        traps.forEach(t => {
+            formatted.push({ x: t.x, z: t.z, tx: t.tx, tz: t.tz, type: 'RED_CIRCLE_DROP', isCurrentlyPressed: false, triggered: false });
+        });
+        return formatted;
+    }
+
+    function cropMap(grid, minSteps, size, switches) {
+        let minX = size, maxX = 0, minZ = size, maxZ = 0;
+        for(let z=0; z<size; z++) {
+            for(let x=0; x<size; x++) {
+                if(grid[z][x] !== '0') {
+                    minX = Math.min(minX, x); maxX = Math.max(maxX, x);
+                    minZ = Math.min(minZ, z); maxZ = Math.max(maxZ, z);
+                }
+            }
+        }
+        minX = Math.max(0, minX - 1); maxX = Math.min(size - 1, maxX + 1);
+        minZ = Math.max(0, minZ - 1); maxZ = Math.min(size - 1, maxZ + 1);
+        
+        let finalMap = [];
+        for(let z=minZ; z<=maxZ; z++) finalMap.push(grid[z].slice(minX, maxX + 1));
+        
+        for (let sw of switches) {
+            sw.x -= minX; sw.z -= minZ;
+            if (sw.targets) sw.targets.forEach(t => { t.x -= minX; t.z -= minZ; });
+            if (sw.type === 'RED_CIRCLE_DROP') { sw.tx -= minX; sw.tz -= minZ; }
+        }
+        
+        return { map: finalMap, minSteps: minSteps, switches: switches };
+    }
+
+    function getValidMoves(x, z, o, size) {
+        let moves = [];
+        for(let dir of ['UP', 'DOWN', 'LEFT', 'RIGHT']) {
+            let newPos = { x: x, z: z }; let newOr = o;
+            if (o === 'UPRIGHT') {
+                if (dir === 'UP') { newPos.z -= 2; newOr = 'FLAT_Z'; }
+                else if (dir === 'DOWN') { newPos.z += 1; newOr = 'FLAT_Z'; }
+                else if (dir === 'LEFT') { newPos.x -= 2; newOr = 'FLAT_X'; }
+                else if (dir === 'RIGHT') { newPos.x += 1; newOr = 'FLAT_X'; }
+            } else if (o === 'FLAT_X') {
+                if (dir === 'UP') { newPos.z -= 1; newOr = 'FLAT_X'; }
+                else if (dir === 'DOWN') { newPos.z += 1; newOr = 'FLAT_X'; }
+                else if (dir === 'LEFT') { newPos.x -= 1; newOr = 'UPRIGHT'; }
+                else if (dir === 'RIGHT') { newPos.x += 2; newOr = 'UPRIGHT'; }
+            } else if (o === 'FLAT_Z') {
+                if (dir === 'UP') { newPos.z -= 1; newOr = 'UPRIGHT'; }
+                else if (dir === 'DOWN') { newPos.z += 2; newOr = 'UPRIGHT'; }
+                else if (dir === 'LEFT') { newPos.x -= 1; newOr = 'FLAT_Z'; }
+                else if (dir === 'RIGHT') { newPos.x += 1; newOr = 'FLAT_Z'; }
+            }
+            moves.push({x: newPos.x, z: newPos.z, o: newOr});
+        }
+        return moves;
+    }
+
+    function getFootprints(x, z, o) {
+        if(o === 'UPRIGHT') return [{x, z}];
+        if(o === 'FLAT_X') return [{x, z}, {x: x+1, z}];
+        if(o === 'FLAT_Z') return [{x, z}, {x, z: z+1}];
+        return [];
+    }
+
+    // === Three.js 渲染与交互核心 ===
+    let scene, camera, renderer, dirLight;
+    let tilesGroup, switchesGroup, playerMesh, pivot, particlesMesh;
+    
+    let currentLevelIndex = 0;
+    let currentLevelMap = [];
+    let levelSwitches = [];
+    let bridgeMeshes = [];
+    let tileMeshes = {}; 
+    
+    let gameState = 'PLAYING';
+    let pos = { x: 0, z: 0 }; 
+    let orientation = 'UPRIGHT'; 
+    let isAnimating = false;
+    let animConfig = null;
+    let isInitialized = false;
+
+    function init() {
+        const container = document.getElementById('canvas-container');
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x030305);
+        scene.fog = new THREE.FogExp2(0x030305, 0.015);
+
+        camera = new THREE.PerspectiveCamera(38, window.innerWidth / window.innerHeight, 1, 1000);
+        
+        renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        container.appendChild(renderer.domElement);
+
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.55); 
+        scene.add(ambientLight);
+
+        dirLight = new THREE.DirectionalLight(0xe0f7fa, 0.95);
+        dirLight.position.set(12, 35, 12);
+        dirLight.castShadow = true;
+        dirLight.shadow.mapSize.width = 2048;
+        dirLight.shadow.mapSize.height = 2048;
+        scene.add(dirLight);
+
+        createParticles();
+
+        tilesGroup = new THREE.Group();
+        scene.add(tilesGroup);
+        
+        switchesGroup = new THREE.Group();
+        scene.add(switchesGroup);
+
+        pivot = new THREE.Object3D();
+        scene.add(pivot);
+
+        createPlayerMesh();
+        window.addEventListener('resize', onWindowResize, false);
+        
+        isInitialized = true;
+        loadLevel(currentLevelIndex);
+        animateLoop();
+    }
+
+    function createParticles() {
+        const particlesGeo = new THREE.BufferGeometry();
+        const posArray = new Float32Array(500 * 3);
+        for(let i = 0; i < 500 * 3; i+=3) {
+            posArray[i] = (Math.random() - 0.5) * 60;
+            posArray[i+1] = (Math.random() - 0.5) * 30 - 5;
+            posArray[i+2] = (Math.random() - 0.5) * 60;
+        }
+        particlesGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+        const particleMat = new THREE.PointsMaterial({
+            size: 0.12, color: 0x66fcf1, transparent: true, opacity: 0.2, blending: THREE.AdditiveBlending
+        });
+        particlesMesh = new THREE.Points(particlesGeo, particleMat);
+        scene.add(particlesMesh);
+    }
+
+    function createPlayerMesh() {
+        const geometry = new THREE.BoxGeometry(0.98, 2, 0.98);
+        const material = new THREE.MeshStandardMaterial({ color: 0x8b5a2b, roughness: 0.5, metalness: 0.1 });
+        playerMesh = new THREE.Mesh(geometry, material);
+        playerMesh.castShadow = true;
+        playerMesh.receiveShadow = true;
+
+        const edges = new THREE.EdgesGeometry(geometry);
+        const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x111111, linewidth: 2 }));
+        playerMesh.add(line);
+    }
+
+    function clearScene() {
+        if (!tilesGroup || !switchesGroup) return; 
+        
+        while(tilesGroup.children.length > 0) {
+            let child = tilesGroup.children[0];
+            if(child.geometry) child.geometry.dispose();
+            if(child.material) {
+                if (Array.isArray(child.material)) child.material.forEach(m => m.dispose());
+                else child.material.dispose();
+            }
+            tilesGroup.remove(child);
+        }
+        while(switchesGroup.children.length > 0) {
+            let child = switchesGroup.children[0];
+            child.traverse(c => {
+                if(c.geometry) c.geometry.dispose();
+                if(c.material) c.material.dispose();
+            });
+            switchesGroup.remove(child);
+        }
+    }
+
+    function updateStepCounter() {
+        document.getElementById('current-steps-text').innerText = `已走步数: ${playerStepCount}`;
+    }
+
+    function loadLevel(index) {
+        if (!isInitialized) return;
+        currentLevelIndex = index;
+        updateLevelSelectUI();
+        clearScene();
+        playerStepCount = 0;
+        updateStepCounter();
+        
+        if (!cachedLevels[index]) {
+            cachedLevels[index] = generateProceduralLevel(index);
+        }
+        let levelData = JSON.parse(JSON.stringify(cachedLevels[index]));
+        
+        currentLevelMap = levelData.map;
+        levelSwitches = levelData.switches ? levelData.switches : [];
+        bridgeMeshes = [];
+        tileMeshes = {};
+
+        document.getElementById('lvl-text').innerText = `Level ${index + 1}`;
+        document.getElementById('min-steps-text').innerText = `极限破局: ${levelData.minSteps} 步`;
+        hideMessage();
+
+        const mapWidth = currentLevelMap[0].length;
+        const mapHeight = currentLevelMap.length;
+
+        const tileGeo = new THREE.BoxGeometry(1.0, 0.4, 1.0);
+        const tileMat = new THREE.MeshStandardMaterial({ color: 0x828fa3, roughness: 0.6, metalness: 0.05 });
+        const fragileMat = new THREE.MeshStandardMaterial({ color: 0xfbbf24, roughness: 0.6, metalness: 0.05 });
+        
+        for (let z = 0; z < mapHeight; z++) {
+            for (let x = 0; x < mapWidth; x++) {
+                let char = currentLevelMap[z][x];
+                
+                if (char === 'H') {
+                    let holeMesh = new THREE.Mesh(
+                        new THREE.PlaneGeometry(0.8, 0.8),
+                        new THREE.MeshBasicMaterial({color: 0xff3300, side: THREE.DoubleSide, transparent: true, opacity: 0.8})
+                    );
+                    holeMesh.rotation.x = -Math.PI / 2;
+                    holeMesh.position.set(x, -0.3, z);
+                    tilesGroup.add(holeMesh);
+                    continue;
+                }
+
+                if (char === 'B') {
+                    currentLevelMap[z][x] = '0'; // 初始为虚空
+                    let bridgeMesh = new THREE.Mesh(tileGeo, tileMat.clone());
+                    bridgeMesh.material.color.setHex(0x5c7c8c); 
+                    const edges = new THREE.EdgesGeometry(tileGeo);
+                    const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x333333, linewidth: 1 }));
+                    line.scale.set(1.01, 1.01, 1.01); 
+                    bridgeMesh.add(line);
+                    bridgeMesh.position.set(x, -0.2, z);
+                    bridgeMesh.receiveShadow = true;
+                    bridgeMesh.visible = false;
+                    tilesGroup.add(bridgeMesh);
+                    bridgeMeshes.push({ x: x, z: z, mesh: bridgeMesh, active: false });
+                }
+
+                if (char === '1' || char === 'S' || char === 'F') {
+                    let isFragile = (char === 'F');
+                    let mesh = new THREE.Mesh(tileGeo, isFragile ? fragileMat : tileMat);
+                    
+                    const edges = new THREE.EdgesGeometry(tileGeo);
+                    const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x333333, linewidth: 1 }));
+                    line.scale.set(1.01, 1.01, 1.01); 
+                    mesh.add(line);
+
+                    mesh.position.set(x, -0.2, z);
+                    mesh.receiveShadow = true;
+                    tilesGroup.add(mesh);
+                    tileMeshes[`${x},${z}`] = mesh; 
+
+                    if (char === 'S') {
+                        pos = { x: x, z: z };
+                        orientation = 'UPRIGHT';
+                        currentLevelMap[z][x] = '1'; 
+                    }
+                }
+            }
+        }
+
+        // 渲染各类开关陷阱
+        levelSwitches.forEach(sw => {
+            sw.isCurrentlyPressed = false;
+            let swMesh;
+            if (sw.type === 'SOFT_TOGGLE') {
+                swMesh = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.3, 0.3, 0.08, 16),
+                    new THREE.MeshStandardMaterial({color: 0x2ecc71})
+                );
+                swMesh.position.set(sw.x, 0.04, sw.z);
+            } else if (sw.type === 'HARD_TOGGLE') {
+                swMesh = new THREE.Group();
+                const partMat = new THREE.MeshStandardMaterial({color: 0x4ade80}); 
+                const partGeo = new THREE.BoxGeometry(0.5, 0.08, 0.15);
+                const p1 = new THREE.Mesh(partGeo, partMat); p1.rotation.y = Math.PI/4;
+                const p2 = new THREE.Mesh(partGeo, partMat); p2.rotation.y = -Math.PI/4;
+                swMesh.add(p1); swMesh.add(p2);
+                swMesh.position.set(sw.x, 0.04, sw.z);
+            } else if (sw.type === 'RED_CIRCLE_DROP') {
+                swMesh = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.28, 0.28, 0.05, 16),
+                    new THREE.MeshStandardMaterial({color: 0x991b1b, emissive: 0x550000}) 
+                );
+                swMesh.position.set(sw.x, 0.02, sw.z);
+                
+                let targetMesh = tileMeshes[`${sw.tx},${sw.tz}`];
+                if (targetMesh) {
+                    targetMesh.material = targetMesh.material.clone();
+                    targetMesh.material.color.setHex(0xc76c6c); 
+                }
+            }
+            sw.mesh = swMesh;
+            switchesGroup.add(swMesh);
+        });
+
+        scene.add(playerMesh);
+        snapToGrid();
+        
+        let cx = mapWidth / 2 - 0.5;
+        let cz = mapHeight / 2 - 0.5;
+        let dist = Math.max(mapWidth, mapHeight) * 0.85 + 5; 
+        camera.position.set(cx, dist * 1.3, cz + dist * 0.9);
+        camera.lookAt(cx, 0, cz);
+
+        gameState = 'PLAYING';
+        isAnimating = false;
+        animConfig = null;
+    }
+
+    function snapToGrid() {
+        playerMesh.rotation.set(0, 0, 0);
+        if (orientation === 'UPRIGHT') {
+            playerMesh.position.set(pos.x, 1.0, pos.z);
+        } else if (orientation === 'FLAT_X') {
+            playerMesh.position.set(pos.x + 0.5, 0.5, pos.z);
+            playerMesh.rotation.z = Math.PI / 2;
+        } else if (orientation === 'FLAT_Z') {
+            playerMesh.position.set(pos.x, 0.5, pos.z + 0.5);
+            playerMesh.rotation.x = Math.PI / 2;
+        }
+    }
+
+    function move(dir) {
+        if (gameState !== 'PLAYING' || isAnimating) return;
+
+        let newPos = { x: pos.x, z: pos.z };
+        let newOr = orientation;
+        let pivotPoint = new THREE.Vector3();
+        let axis = 'x', angle = 0;
+
+        if (orientation === 'UPRIGHT') {
+            if (dir === 'UP') { newPos.z -= 2; newOr = 'FLAT_Z'; pivotPoint.set(pos.x, 0, pos.z - 0.5); axis = 'x'; angle = -Math.PI/2; }
+            else if (dir === 'DOWN') { newPos.z += 1; newOr = 'FLAT_Z'; pivotPoint.set(pos.x, 0, pos.z + 0.5); axis = 'x'; angle = Math.PI/2; }
+            else if (dir === 'LEFT') { newPos.x -= 2; newOr = 'FLAT_X'; pivotPoint.set(pos.x - 0.5, 0, pos.z); axis = 'z'; angle = Math.PI/2; }
+            else if (dir === 'RIGHT') { newPos.x += 1; newOr = 'FLAT_X'; pivotPoint.set(pos.x + 0.5, 0, pos.z); axis = 'z'; angle = -Math.PI/2; }
+        } 
+        else if (orientation === 'FLAT_X') {
+            if (dir === 'UP') { newPos.z -= 1; newOr = 'FLAT_X'; pivotPoint.set(pos.x + 0.5, 0, pos.z - 0.5); axis = 'x'; angle = -Math.PI/2; }
+            else if (dir === 'DOWN') { newPos.z += 1; newOr = 'FLAT_X'; pivotPoint.set(pos.x + 0.5, 0, pos.z + 0.5); axis = 'x'; angle = Math.PI/2; }
+            else if (dir === 'LEFT') { newPos.x -= 1; newOr = 'UPRIGHT'; pivotPoint.set(pos.x - 0.5, 0, pos.z); axis = 'z'; angle = Math.PI/2; }
+            else if (dir === 'RIGHT') { newPos.x += 2; newOr = 'UPRIGHT'; pivotPoint.set(pos.x + 1.5, 0, pos.z); axis = 'z'; angle = -Math.PI/2; }
+        } 
+        else if (orientation === 'FLAT_Z') {
+            if (dir === 'UP') { newPos.z -= 1; newOr = 'UPRIGHT'; pivotPoint.set(pos.x, 0, pos.z - 0.5); axis = 'x'; angle = -Math.PI/2; }
+            else if (dir === 'DOWN') { newPos.z += 2; newOr = 'UPRIGHT'; pivotPoint.set(pos.x, 0, pos.z + 1.5); axis = 'x'; angle = Math.PI/2; }
+            else if (dir === 'LEFT') { newPos.x -= 1; newOr = 'FLAT_Z'; pivotPoint.set(pos.x - 0.5, 0, pos.z + 0.5); axis = 'z'; angle = Math.PI/2; }
+            else if (dir === 'RIGHT') { newPos.x += 1; newOr = 'FLAT_Z'; pivotPoint.set(pos.x + 0.5, 0, pos.z + 0.5); axis = 'z'; angle = -Math.PI/2; }
+        }
+
+        playerStepCount++;
+        updateStepCounter();
+
+        pos = newPos;
+        orientation = newOr;
+        startRollAnimation(pivotPoint, axis, angle, () => {
+            snapToGrid();
+            handleMechanisms();
+            checkWinOrFall();
+        });
+    }
+
+    function startRollAnimation(pivotPoint, axis, angle, onComplete) {
+        pivot.position.copy(pivotPoint);
+        pivot.rotation.set(0, 0, 0);
+        pivot.attach(playerMesh);
+        isAnimating = true;
+        animConfig = { axis: axis, targetAngle: angle, currentAngle: 0, speed: angle / 10, onComplete: onComplete };
+    }
+
+    function handleMechanisms() {
+        let occupied = getFootprints(pos.x, pos.z, orientation);
+        
+        levelSwitches.forEach(sw => {
+            let isOccupyingThisSwitch = occupied.some(t => t.x === sw.x && t.z === sw.z);
+            let isValidPress = false;
+
+            if (isOccupyingThisSwitch) {
+                if (sw.type === 'SOFT_TOGGLE' || sw.type === 'RED_CIRCLE_DROP') isValidPress = true;
+                if (sw.type === 'HARD_TOGGLE' && orientation === 'UPRIGHT') isValidPress = true;
+            }
+
+            if (isValidPress && !sw.isCurrentlyPressed) {
+                sw.isCurrentlyPressed = true;
+                sw.mesh.position.y = -0.05; 
+                
+                if (sw.type === 'SOFT_TOGGLE' || sw.type === 'HARD_TOGGLE') {
+                    sw.state = !sw.state;
+                    sw.targets.forEach(t => {
+                        let bMesh = bridgeMeshes.find(b => b.x === t.x && b.z === t.z);
+                        if (bMesh) {
+                            bMesh.active = sw.state;
+                            currentLevelMap[t.z][t.x] = bMesh.active ? '1' : '0';
+                            bMesh.mesh.visible = bMesh.active;
+                        }
+                    });
+                    setTimeout(checkWinOrFall, 50);
+
+                } else if (sw.type === 'RED_CIRCLE_DROP' && !sw.triggered) {
+                    sw.triggered = true;
+                    sw.mesh.material.emissive.setHex(0x000000); 
+                    
+                    document.body.classList.add('shaking');
+                    setTimeout(()=> document.body.classList.remove('shaking'), 300);
+
+                    currentLevelMap[sw.tz][sw.tx] = '0';
+                    let tMesh = tileMeshes[`${sw.tx},${sw.tz}`];
+                    if (tMesh) {
+                        tMesh.position.y -= 0.5; 
+                        setTimeout(() => { tMesh.visible = false; }, 150);
+                    }
+                    setTimeout(checkWinOrFall, 150); 
+                }
+
+            } else if (!isValidPress && sw.isCurrentlyPressed) {
+                sw.isCurrentlyPressed = false;
+                sw.mesh.position.y = (sw.type === 'RED_CIRCLE_DROP') ? 0.02 : 0.04;
+            }
+        });
+    }
+
+    function checkWinOrFall() {
+        if (gameState !== 'PLAYING') return;
+
+        let occupiedTiles = getFootprints(pos.x, pos.z, orientation);
+        let validCount = 0;
+        let brokeFragile = false;
+        let brokenMesh = null;
+        
+        for (let t of occupiedTiles) {
+            let row = currentLevelMap[t.z];
+            let char = row ? row[t.x] : '0';
+            
+            if (char === '1') {
+                validCount++;
+            } else if (char === 'F') {
+                if (orientation === 'UPRIGHT') {
+                    brokeFragile = true;
+                    brokenMesh = tileMeshes[`${t.x},${t.z}`];
+                } else {
+                    validCount++;
+                }
+            } else if (char === 'H') {
+                if (orientation === 'UPRIGHT') {
+                    triggerWin();
+                    return;
+                } else {
+                    validCount++; 
+                }
+            }
+        }
+
+        if (brokeFragile) {
+            if(brokenMesh) brokenMesh.visible = false; 
+            triggerFall("踩破了黄砖！", "在黄砖雷区必须保持平躺");
+            return;
+        }
+
+        if (validCount < occupiedTiles.length) {
+            triggerFall("坠入虚空", "按 Space (空格键) 重新尝试");
+        }
+    }
+
+    function triggerFall(mainMsg = "坠入虚空", subMsg = "按 Space (空格键) 重试当前迷宫") {
+        gameState = 'FALLING';
+        showMessage(mainMsg, subMsg);
+    }
+
+    function triggerWin() {
+        gameState = 'WON';
+        showMessage("绝绝子！", "深渊算力正在演算下一关...");
+        document.getElementById('main-msg').style.color = "#4ade80";
+        
+        setTimeout(() => {
+            document.getElementById('main-msg').style.color = "#f87171";
+            currentLevelIndex++;
+            loadLevel(currentLevelIndex);
+        }, 1500);
+    }
+
+    function showMessage(main, sub) {
+        document.getElementById('main-msg').innerText = main;
+        document.getElementById('sub-msg').innerText = sub;
+        document.getElementById('message-overlay').style.display = 'flex';
+    }
+
+    function hideMessage() {
+        document.getElementById('message-overlay').style.display = 'none';
+    }
+
+    window.addEventListener('keydown', (e) => {
+        if (!isInitialized) return; 
+
+        if (e.code === 'KeyR') {
+            delete cachedLevels[currentLevelIndex];
+            loadLevel(currentLevelIndex);
+            showMessage("重新演算", "死胡同强制折返已部署");
+            document.getElementById('main-msg').style.color = "#66fcf1";
+            setTimeout(() => { 
+                if(gameState === 'PLAYING') hideMessage(); 
+                document.getElementById('main-msg').style.color = "#f87171";
+            }, 1200);
+            return;
+        }
+
+        if (gameState === 'FALLING' && e.code === 'Space') {
+            loadLevel(currentLevelIndex); 
+            return;
+        }
+        
+        if (gameState !== 'PLAYING' || isAnimating) return;
+
+        switch(e.code) {
+            case 'ArrowUp': case 'KeyW': move('UP'); break;
+            case 'ArrowDown': case 'KeyS': move('DOWN'); break;
+            case 'ArrowLeft': case 'KeyA': move('LEFT'); break;
+            case 'ArrowRight': case 'KeyD': move('RIGHT'); break;
+        }
+    });
+
+    function onWindowResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    function animateLoop() {
+        requestAnimationFrame(animateLoop);
+
+        if (particlesMesh) particlesMesh.rotation.y += 0.0005;
+
+        if (gameState === 'PLAYING' && isAnimating && animConfig) {
+            animConfig.currentAngle += animConfig.speed;
+            let finished = false;
+            
+            if (Math.abs(animConfig.currentAngle) >= Math.abs(animConfig.targetAngle)) {
+                animConfig.currentAngle = animConfig.targetAngle;
+                finished = true;
+            }
+
+            if (animConfig.axis === 'x') pivot.rotation.x = animConfig.currentAngle;
+            if (animConfig.axis === 'z') pivot.rotation.z = animConfig.currentAngle;
+
+            if (finished) {
+                scene.attach(playerMesh);
+                isAnimating = false;
+                let callback = animConfig.onComplete;
+                animConfig = null;
+                if (callback) callback();
+            }
+        } 
+        else if (gameState === 'FALLING' || gameState === 'WON') {
+            playerMesh.position.y -= 0.25; 
+            if (gameState === 'FALLING') {
+                playerMesh.rotation.x += 0.05;
+                playerMesh.rotation.z += 0.05;
+            }
+        }
+
+        renderer.render(scene, camera);
+    }
+
+    function checkThreeAndInit() {
+        if (typeof THREE !== 'undefined') {
+            init();
+        } else {
+            setTimeout(checkThreeAndInit, 50); 
+        }
+    }
+
+    if (document.readyState === 'complete') {
+        checkThreeAndInit();
+    } else {
+        window.addEventListener('load', checkThreeAndInit);
+    }
+</script>
+</body>
+</html>
