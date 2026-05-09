@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>勇探虎穴 - 清爽重制版</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=ZCOOL+KuaiLe&display=swap');
+        
+        :root {
+            --stone-dark: #2c1e16;
+            --wood-dark: #5d3a1a;
+            --wood-light: #8b5e3c;
+            --paper-bg: #fdf5e6;
+            --tiger-gold: #f59e0b;
+            --blood-red: #dc2626;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background-color: var(--stone-dark);
+            background-image: url('https://www.transparenttextures.com/patterns/dark-matter.png');
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            font-family: 'ZCOOL KuaiLe', cursive;
+            user-select: none;
+            color: #333;
+        }
+
+        .title-font { font-family: 'Ma Shan Zheng', cursive; }
+
+        .home-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            max-width: 900px;
+            gap: 30px;
+        }
+
+        .title-board {
+            background: linear-gradient(to bottom, #8b4513, #4a2e15);
+            border: 6px solid #2d1808;
+            border-radius: 15px;
+            padding: 15px 80px;
+            box-shadow: 0 15px 30px rgba(0,0,0,0.8), inset 0 0 15px rgba(245, 158, 11, 0.3);
+        }
+
+        .title-text {
+            font-family: 'Ma Shan Zheng', cursive;
+            font-size: 7rem;
+            color: #fcd34d;
+            text-shadow: 0 5px 0 #92400e, 0 10px 15px rgba(0,0,0,0.8);
+            margin: 0;
+            line-height: 1;
+            letter-spacing: 8px;
+            white-space: nowrap; /* 强制不换行，解决竖排问题 */
+        }
+
+        .notice-board {
+            background: var(--paper-bg);
+            background-image: url('https://www.transparenttextures.com/patterns/cream-paper.png');
+            border: 8px solid var(--wood-light);
+            border-radius: 20px;
+            padding: 40px;
+            width: 100%;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.6), inset 0 0 40px rgba(139, 94, 60, 0.2);
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 30px;
+            justify-content: center;
+            width: 100%;
+        }
+
+        .action-btn {
+            background: linear-gradient(to bottom, #fcd34d, #f59e0b);
+            color: #78350f;
+            border: 4px solid #92400e;
+            border-radius: 12px;
+            padding: 15px 40px;
+            font-size: 2rem;
+            cursor: pointer;
+            box-shadow: 0 8px 15px rgba(0,0,0,0.5);
+            transition: all 0.2s;
+            font-family: 'ZCOOL KuaiLe', cursive;
+            font-weight: bold;
+        }
+        .action-btn:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 20px rgba(0,0,0,0.6);
+            background: linear-gradient(to bottom, #fde047, #d97706);
+        }
+
+        .action-btn-primary {
+            background: linear-gradient(to bottom, #ef4444, #b91c1c);
+            color: #fff;
+            border-color: #7f1d1d;
+            transform: scale(1.1);
+        }
+        .action-btn-primary:hover {
+            background: linear-gradient(to bottom, #f87171, #dc2626);
+            transform: translateY(-5px) scale(1.1);
+        }
+
+        .game-board {
+            width: 100%;
+            max-width: 1200px;
+            height: 95vh;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .top-bar {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            height: 70px;
+        }
+
+        .status-badge {
+            background: var(--paper-bg);
+            border: 4px solid var(--wood-light);
+            border-radius: 50px;
+            padding: 10px 40px;
+            font-size: 2rem;
+            color: #5d3a1a;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.4);
+            font-weight: bold;
+        }
+
+        .card-stage {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .treasure-card {
+            background: #fffaf0;
+            border: 5px solid var(--wood-light);
+            border-radius: 15px;
+            width: 190px;
+            height: 310px;
+            display: flex;
+            flex-direction: column;
+            cursor: pointer;
+            position: relative;
+            box-shadow: 5px 10px 20px rgba(0,0,0,0.4);
+            transition: all 0.2s;
+            overflow: hidden;
+        }
+        .treasure-card:hover:not(.locked) {
+            transform: translateY(-10px);
+            border-color: var(--tiger-gold);
+            box-shadow: 0 15px 30px rgba(245, 158, 11, 0.4);
+        }
+        .treasure-card.locked {
+            filter: grayscale(0.8) brightness(0.8);
+            pointer-events: none;
+            transform: scale(0.95);
+        }
+
+        .card-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            gap: 2px;
+            background: var(--wood-light);
+            padding: 2px;
+            border-bottom: 3px solid var(--wood-light);
+        }
+        .stat-cell {
+            background: var(--paper-bg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            padding: 8px 0;
+            font-size: 1.5rem;
+            font-weight: 900;
+        }
+
+        .card-art {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: radial-gradient(circle, #fff 0%, #fef3c7 100%);
+            position: relative;
+        }
+        .card-art i { font-size: 5rem; filter: drop-shadow(2px 3px 2px rgba(0,0,0,0.2)); }
+        
+        .card-name {
+            background: var(--wood-light);
+            color: white;
+            text-align: center;
+            padding: 10px;
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+
+        .stamp {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%) rotate(-15deg);
+            color: white;
+            padding: 5px 15px;
+            font-size: 1.5rem;
+            border: 3px solid white;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+            z-index: 10;
+            white-space: nowrap;
+        }
+
+        .bottom-scroll {
+            height: 250px;
+            background: var(--paper-bg);
+            background-image: url('https://www.transparenttextures.com/patterns/old-map.png');
+            border: 6px solid var(--wood-dark);
+            border-radius: 20px;
+            padding: 15px 40px;
+            box-shadow: inset 0 0 40px rgba(0,0,0,0.2), 0 -10px 30px rgba(0,0,0,0.5);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            position: relative;
+        }
+
+        .roller {
+            position: absolute;
+            top: -10px; bottom: -10px; width: 35px;
+            background: linear-gradient(to right, #4a2e15, #8b5e3c, #4a2e15);
+            border: 3px solid #1a0f05;
+            border-radius: 15px;
+        }
+
+        table { width: 100%; border-collapse: separate; border-spacing: 0 6px; }
+        th { border-bottom: 3px solid var(--wood-light); padding-bottom: 8px; font-size: 1.3rem; color: #5d3a1a;}
+        td { padding: 8px; text-align: center; font-size: 1.5rem; font-weight: 900; background: rgba(255,255,255,0.6); border-top: 2px solid var(--wood-light); border-bottom: 2px solid var(--wood-light);}
+        td:first-child { border-left: 2px solid var(--wood-light); border-radius: 10px 0 0 10px; }
+        td:last-child { border-right: 2px solid var(--wood-light); border-radius: 0 10px 10px 0; }
+        
+        .row-me td { background: rgba(245, 158, 11, 0.3); color: #92400e; }
+        .row-dead td { background: rgba(220, 38, 38, 0.15); color: #b91c1c; text-decoration: line-through; }
+        .danger-text { color: var(--blood-red); animation: blink 1s infinite alternate; }
+
+        .modal-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+            display: flex; align-items: center; justify-content: center; z-index: 100;
+            backdrop-filter: blur(5px);
+        }
+        .modal-box {
+            background: var(--paper-bg);
+            border: 10px solid var(--wood-dark);
+            border-radius: 30px;
+            padding: 40px;
+            width: 90%; max-width: 800px;
+            max-height: 90vh; overflow-y: auto;
+            text-align: center;
+            position: relative;
+        }
+        .close-btn {
+            position: absolute; top: 15px; right: 20px; font-size: 3rem; color: #78350f; cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .close-btn:hover { transform: scale(1.1) rotate(90deg); color: #dc2626; }
+        
+        /* 物品图鉴网格 */
+        .gallery-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 15px; margin-top: 20px;
+        }
+        .gallery-item {
+            background: #fff; border: 3px solid var(--wood-light); border-radius: 10px; padding: 10px;
+            display: flex; align-items: center; gap: 15px; text-align: left;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useCallback, useRef } = React;
+
+        // 修正了配剑图标，确保颜色和数值合理
+        const ITEMS = [
+            { id: 1, name: "虎穴残页", v: 1, w: 0, t: 0, f: 0, icon: "fa-scroll", color: "#a1a1aa" },
+            { id: 2, name: "一节枯骨", v: 2, w: 0, t: 1, f: 0, icon: "fa-bone", color: "#d6d3d1" },
+            { id: 3, name: "旧陶罐",   v: 3, w: 1, t: 2, f: 0, icon: "fa-jar", color: "#60a5fa" },
+            { id: 4, name: "林间玉坠", v: 4, w: 1, t: 0, f: 1, icon: "fa-gem", color: "#34d399" },
+            { id: 5, name: "猎人手记", v: 5, w: 3, t: 0, f: 0, icon: "fa-book-journal-whills", color: "#a16207" },
+            { id: 6, name: "遗落行囊", v: 6, w: 1, t: 3, f: 1, icon: "fa-box-archive", color: "#78716c" },
+            { id: 7, name: "祭祀金杯", v: 7, w: 3, t: 0, f: 1, icon: "fa-wine-glass", color: "#b45309" },
+            { id: 8, name: "黄金虎符", v: 8, w: 3, t: 4, f: 2, icon: "fa-cat", color: "#fbbf24" },
+            { id: 9, name: "将军配剑", v: 9, w: 6, t: 1, f: 0, icon: "fa-khanda", color: "#64748b" }, // 剑的图标
+            { id: 10, name: "百兽王冠", v: 10, w: 4, t: 1, f: 2, icon: "fa-crown", color: "#fb923c" },
+            { id: 11, name: "狂暴虎魂", v: 12, w: 3, t: 0, f: 3, icon: "fa-fire", color: "#ef4444" }
+        ];
+
+        const App = () => {
+            const [view, setView] = useState('START'); // START, PLAY, END
+            const [modal, setModal] = useState(null); // 'RULES', 'ITEMS', null
+            const [round, setRound] = useState(1);
+            const [timer, setTimer] = useState(9);
+            const [pool, setPool] = useState([]);
+            const [players, setPlayers] = useState([]);
+            const [endReason, setEndReason] = useState("");
+
+            const aiTimers = useRef([]);
+
+            const generatePool = useCallback(() => {
+                const shuffled = [...ITEMS].sort(() => 0.5 - Math.random());
+                const currentPool = shuffled.slice(0, 5).map(item => ({
+                    ...item,
+                    uid: Math.random(),
+                    takenBy: null
+                }));
+                setPool(currentPool);
+                setPlayers(prev => prev.map(p => ({ ...p, hasPicked: false })));
+                setTimer(9);
+            }, []);
+
+            const initGame = () => {
+                setRound(1);
+                setModal(null);
+                setPlayers([
+                    { id: 0, name: "我 (探险家)", stats: { v: 0, w: 0, t: 0, f: 0 }, alive: true, reason: "" },
+                    { id: 1, name: "贪婪者 A", stats: { v: 0, w: 0, t: 0, f: 0 }, alive: true, reason: "" },
+                    { id: 2, name: "谨慎者 B", stats: { v: 0, w: 0, t: 0, f: 0 }, alive: true, reason: "" },
+                    { id: 3, name: "博弈者 C", stats: { v: 0, w: 0, t: 0, f: 0 }, alive: true, reason: "" }
+                ]);
+                generatePool();
+                setView('PLAY');
+            };
+
+            const executePick = (playerId, itemIdx) => {
+                setPool(prevPool => {
+                    if (prevPool[itemIdx].takenBy !== null) return prevPool;
+                    const nextPool = [...prevPool];
+                    nextPool[itemIdx].takenBy = playerId;
+
+                    setPlayers(prevPlayers => {
+                        if (prevPlayers[playerId].hasPicked) return prevPlayers;
+                        const nextPlayers = [...prevPlayers];
+                        const item = nextPool[itemIdx];
+                        nextPlayers[playerId].stats.v += item.v;
+                        nextPlayers[playerId].stats.w += item.w;
+                        nextPlayers[playerId].stats.t += item.t;
+                        nextPlayers[playerId].stats.f += item.f;
+                        nextPlayers[playerId].hasPicked = true;
+                        return nextPlayers;
+                    });
+                    return nextPool;
+                });
+            };
+
+            useEffect(() => {
+                if (view === 'PLAY') {
+                    aiTimers.current.forEach(clearTimeout);
+                    aiTimers.current = [];
+
+                    [1, 2, 3].forEach(aiId => {
+                        const delay = 500 + Math.random() * 7500;
+                        const t = setTimeout(() => {
+                            setPool(curr => {
+                                const avail = curr.map((it, i) => it.takenBy === null ? i : -1).filter(i => i !== -1);
+                                if (avail.length > 0) executePick(aiId, avail[Math.floor(Math.random() * avail.length)]);
+                                return curr;
+                            });
+                        }, delay);
+                        aiTimers.current.push(t);
+                    });
+
+                    const countdown = setInterval(() => {
+                        setTimer(t => {
+                            if (t <= 1) {
+                                handleRoundEnd();
+                                return 9;
+                            }
+                            return t - 1;
+                        });
+                    }, 1000);
+                    
+                    return () => { 
+                        clearInterval(countdown); 
+                        aiTimers.current.forEach(clearTimeout); 
+                    };
+                }
+            }, [round, view]);
+
+            const handleRoundEnd = () => {
+                let isEnd = false;
+                let msg = "";
+                
+                if (round >= 10) { 
+                    isEnd = true; msg = "十回合届满，虎穴崩塌！"; 
+                } else if (round >= 6) {
+                    const deathProb = [0,0,0,0,0, 0.1, 0.25, 0.45, 0.7];
+                    if (Math.random() < deathProb[round]) {
+                        isEnd = true; msg = `突发状况！第 ${round} 回合发生洞穴陷落！`;
+                    }
+                }
+
+                if (isEnd) {
+                    setEndReason(msg);
+                    performFinalCalculation();
+                } else {
+                    setRound(r => r + 1);
+                    generatePool();
+                }
+            };
+
+            const performFinalCalculation = () => {
+                setView('END');
+                setPlayers(prev => {
+                    const finalData = JSON.parse(JSON.stringify(prev));
+                    const maxWeight = Math.max(...finalData.map(p => p.stats.w));
+                    const maxTiger = Math.max(...finalData.map(p => p.stats.t));
+
+                    return finalData.map(p => {
+                        let dead = false;
+                        let reason = "";
+
+                        if (p.stats.f > p.stats.t) {
+                            dead = true; reason = "腥味盖过虎气，被群狼分食";
+                        } else if (p.stats.w === maxWeight && maxWeight > 0) {
+                            dead = true; reason = "全场负重最高，被落石掩埋";
+                        } else if (p.stats.t === maxTiger && maxTiger > 0) {
+                            dead = true; reason = "全场虎气最盛，激怒了虎王";
+                        }
+
+                        return { ...p, alive: !dead, reason };
+                    });
+                });
+            };
+
+            if (view === 'START') {
+                return (
+                    <div className="home-screen">
+                        {/* 纯净的横向主标题 */}
+                        <div className="title-board">
+                            <h1 className="title-text">勇探虎穴</h1>
+                        </div>
+
+                        {/* 居中大板子 */}
+                        <div className="notice-board">
+                            <p className="text-center text-3xl mb-6 font-bold text-amber-900 border-b-4 border-amber-900 pb-4">
+                                进入虎穴寻找无尽的宝藏吧！<br/>
+                                <span className="text-2xl text-red-600 mt-2 block">警告：贪婪拿得太多，最终会害了自己！</span>
+                            </p>
+                            <ul className="text-2xl space-y-5 font-bold text-stone-800 flex flex-col items-center">
+                                <li className="flex items-center bg-white/50 px-6 py-3 rounded-lg border-2 border-stone-300 w-full max-w-lg">
+                                    <i className="fas fa-weight-hanging text-stone-600 w-12 text-center text-3xl"></i> 
+                                    负重全场最高者：<strong className="text-red-600 text-3xl ml-auto">死！</strong>
+                                </li>
+                                <li className="flex items-center bg-white/50 px-6 py-3 rounded-lg border-2 border-stone-300 w-full max-w-lg">
+                                    <i className="fas fa-paw text-orange-600 w-12 text-center text-3xl"></i> 
+                                    虎气全场最盛者：<strong className="text-red-600 text-3xl ml-auto">死！</strong>
+                                </li>
+                                <li className="flex items-center bg-white/50 px-6 py-3 rounded-lg border-2 border-stone-300 w-full max-w-lg">
+                                    <i className="fas fa-droplet text-red-600 w-12 text-center text-3xl"></i> 
+                                    自身腥味多于虎气：<strong className="text-red-600 text-3xl ml-auto">死！</strong>
+                                </li>
+                            </ul>
+                        </div>
+
+                        {/* 并排三大按钮 */}
+                        <div className="btn-group">
+                            <button onClick={() => setModal('RULES')} className="action-btn">规则说明</button>
+                            <button onClick={initGame} className="action-btn action-btn-primary">潜入虎穴</button>
+                            <button onClick={() => setModal('ITEMS')} className="action-btn">物品图鉴</button>
+                        </div>
+
+                        {/* 模态框 */}
+                        {modal && (
+                            <div className="modal-overlay">
+                                <div className="modal-box">
+                                    <i className="fas fa-times-circle close-btn" onClick={() => setModal(null)}></i>
+                                    {modal === 'RULES' && (
+                                        <div className="text-left">
+                                            <h2 className="title-font text-5xl text-center mb-6 text-amber-900">生存法则</h2>
+                                            <div className="text-xl space-y-4 font-bold text-stone-800">
+                                                <p>1. 探险分为 <span className="text-red-600">10个回合</span>，每回合展示 <span className="text-orange-600">5件宝物</span>，先抢先得！</p>
+                                                <p>2. 第6回合开始，虎穴随时可能坍塌提前结束探险。</p>
+                                                <p>3. 游戏结束时，所有人进行生死同步判定（符合以下任一条即死）：</p>
+                                                <ul className="list-disc pl-10 text-red-700 text-2xl space-y-2 mt-2">
+                                                    <li>你身上的【腥味】大于【虎威】。</li>
+                                                    <li>你的【总负重】是全场最高！</li>
+                                                    <li>你的【总虎气】是全场最高！</li>
+                                                </ul>
+                                                <p className="mt-6 text-center text-2xl text-orange-800 border-t-2 border-orange-800 pt-4">在所有幸存者中，<strong>【总价值】最高者获胜！</strong></p>
+                                            </div>
+                                        </div>
+                                    )}
+                                    {modal === 'ITEMS' && (
+                                        <div>
+                                            <h2 className="title-font text-5xl mb-6 text-amber-900">全物品密卷</h2>
+                                            <div className="gallery-grid">
+                                                {ITEMS.map(item => (
+                                                    <div key={item.id} className="gallery-item">
+                                                        <div className="text-4xl w-12 text-center" style={{color: item.color}}><i className={`fas ${item.icon}`}></i></div>
+                                                        <div className="flex-1">
+                                                            <div className="font-bold border-b-2 border-amber-900/20 mb-1 pb-1 text-stone-800">{item.name}</div>
+                                                            <div className="grid grid-cols-2 gap-1 text-xs font-bold">
+                                                                <div className="bg-orange-100 rounded px-1"><i className="fas fa-eye text-orange-500 w-4"></i> {item.v}</div>
+                                                                <div className="bg-stone-100 rounded px-1"><i className="fas fa-weight-hanging text-stone-500 w-4"></i> {item.w}</div>
+                                                                <div className="bg-orange-100 rounded px-1"><i className="fas fa-paw text-orange-700 w-4"></i> {item.t}</div>
+                                                                <div className="bg-red-100 rounded px-1"><i className="fas fa-droplet text-red-600 w-4"></i> {item.f}</div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                );
+            }
+
+            return (
+                <div className="game-board">
+                    <div className="top-bar">
+                        <div className="status-badge">
+                            <i className="fas fa-hourglass-half text-orange-500"></i>
+                            <span className={timer <= 3 ? "text-red-600 animate-pulse font-black" : ""}>{timer}s</span>
+                        </div>
+                        <div className="status-badge">第 {round} 回合</div>
+                    </div>
+
+                    <div className="card-stage">
+                        {pool.map((it, idx) => {
+                            const isLocked = it.takenBy !== null || players[0].hasPicked;
+                            return (
+                                <div key={it.uid} 
+                                     onClick={() => !isLocked && executePick(0, idx)}
+                                     className={`treasure-card ${it.takenBy !== null ? 'locked' : ''}`}>
+                                    
+                                    <div className="card-grid">
+                                        <div className="stat-cell"><i className="fas fa-eye text-orange-500 text-sm"></i>{it.v}</div>
+                                        <div className="stat-cell"><i className="fas fa-weight-hanging text-stone-500 text-sm"></i>{it.w}</div>
+                                        <div className="stat-cell"><i className="fas fa-paw text-orange-700 text-sm"></i>{it.t}</div>
+                                        <div className="stat-cell"><i className="fas fa-droplet text-red-600 text-sm"></i>{it.f}</div>
+                                    </div>
+                                    
+                                    <div className="card-art">
+                                        <i className={`fas ${it.icon}`} style={{ color: it.color }}></i>
+                                        {it.takenBy !== null && (
+                                            <div className="stamp" style={{ background: it.takenBy === 0 ? '#e11d48' : '#2563eb' }}>
+                                                {it.takenBy === 0 ? '我的选择' : '被抢走'}
+                                            </div>
+                                        )}
+                                    </div>
+                                    
+                                    <div className="card-name">{it.name}</div>
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                    <div className="bottom-scroll">
+                        <div className="roller" style={{left: '-17px'}}></div>
+                        <div className="roller" style={{right: '-17px'}}></div>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th className="text-left pl-4">探险家姓名</th>
+                                    <th><i className="fas fa-eye mr-1 text-orange-500"></i>价值</th>
+                                    <th><i className="fas fa-weight-hanging mr-1 text-stone-500"></i>重量</th>
+                                    <th><i className="fas fa-paw mr-1 text-orange-700"></i>虎气</th>
+                                    <th><i className="fas fa-droplet mr-1 text-red-600"></i>腥味</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {players.map(p => {
+                                    const isDanger = p.stats.f > p.stats.t && view !== 'END';
+                                    return (
+                                        <tr key={p.id} className={`${p.id === 0 ? 'row-me' : ''} ${!p.alive && view === 'END' ? 'row-dead' : ''}`}>
+                                            <td className="text-left pl-4">{p.name} {!p.alive && view === 'END' && '💀'}</td>
+                                            <td>{p.stats.v}</td>
+                                            <td>{p.stats.w}</td>
+                                            <td className="text-orange-800">{p.stats.t}</td>
+                                            <td className={isDanger ? 'danger-text font-black text-2xl' : 'text-red-900'}>{p.stats.f}</td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {}
+                    {view === 'END' && (
+                        <div className="modal-overlay">
+                            <div className="modal-box" style={{borderWidth: '8px', borderColor: '#78350f'}}>
+                                <h2 className="text-5xl mb-6 text-orange-900 title-font">{endReason}</h2>
+                                <div className="space-y-3 mb-8">
+                                    {players.sort((a,b) => b.stats.v - a.stats.v).map(p => (
+                                        <div key={p.id} className={`flex justify-between items-center p-4 border-4 rounded-xl ${p.alive ? 'bg-orange-100 border-orange-500' : 'bg-gray-300 border-gray-500'}`}>
+                                            <div className="text-left">
+                                                <div className="text-2xl font-black text-stone-800">
+                                                    {p.name} 
+                                                    {p.alive && p.stats.v === Math.max(...players.filter(x=>x.alive).map(x=>x.stats.v)) && <i className="fas fa-crown text-yellow-500 ml-2"></i>}
+                                                </div>
+                                                <div className="text-base font-bold opacity-75">{p.alive ? "逃出生天！" : p.reason}</div>
+                                            </div>
+                                            <div className="text-4xl font-black text-stone-800">{p.alive ? p.stats.v : "---"}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                                <button onClick={() => setView('START')} className="action-btn action-btn-primary">返回营地</button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
