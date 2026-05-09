@@ -3,122 +3,300 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>勇探虎穴 - 终极修复版 (Firestore 引擎)</title>
-    <!-- Tailwind & React -->
+    <title>勇探虎穴 - 清爽重制版 (局域网 P2P 无损 UI 版)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    
-    <!-- 移除了旧版的 v8 SDK，现在我们在下方使用 Module 直接引入最新版 Firestore -->
-
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=ZCOOL+KuaiLe&display=swap');
         
         :root {
-            --stone-dark: #2c1e16; --wood-dark: #5d3a1a; --wood-light: #8b5e3c;
-            --paper-bg: #fdf5e6; --tiger-gold: #f59e0b; --blood-red: #dc2626;
+            --stone-dark: #2c1e16;
+            --wood-dark: #5d3a1a;
+            --wood-light: #8b5e3c;
+            --paper-bg: #fdf5e6;
+            --tiger-gold: #f59e0b;
+            --blood-red: #dc2626;
         }
 
         body {
-            margin: 0; min-height: 100vh; background-color: var(--stone-dark);
+            margin: 0;
+            min-height: 100vh;
+            background-color: var(--stone-dark);
             background-image: url('https://www.transparenttextures.com/patterns/dark-matter.png');
-            display: flex; align-items: center; justify-content: center;
-            overflow-x: hidden; overflow-y: auto; font-family: 'ZCOOL KuaiLe', cursive; user-select: none; color: #333;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            font-family: 'ZCOOL KuaiLe', cursive;
+            user-select: none;
+            color: #333;
         }
 
         .title-font { font-family: 'Ma Shan Zheng', cursive; }
 
-        .home-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; max-width: 900px; gap: 30px; }
-        .title-board { background: linear-gradient(to bottom, #8b4513, #4a2e15); border: 6px solid #2d1808; border-radius: 15px; padding: 15px 80px; box-shadow: 0 15px 30px rgba(0,0,0,0.8), inset 0 0 15px rgba(245, 158, 11, 0.3); }
-        .title-text { font-family: 'Ma Shan Zheng', cursive; font-size: 7rem; color: #fcd34d; text-shadow: 0 5px 0 #92400e, 0 10px 15px rgba(0,0,0,0.8); margin: 0; line-height: 1; letter-spacing: 8px; white-space: nowrap; }
+        .home-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            max-width: 900px;
+            gap: 30px;
+        }
+
+        .title-board {
+            background: linear-gradient(to bottom, #8b4513, #4a2e15);
+            border: 6px solid #2d1808;
+            border-radius: 15px;
+            padding: 15px 80px;
+            box-shadow: 0 15px 30px rgba(0,0,0,0.8), inset 0 0 15px rgba(245, 158, 11, 0.3);
+        }
+
+        .title-text {
+            font-family: 'Ma Shan Zheng', cursive;
+            font-size: 7rem;
+            color: #fcd34d;
+            text-shadow: 0 5px 0 #92400e, 0 10px 15px rgba(0,0,0,0.8);
+            margin: 0;
+            line-height: 1;
+            letter-spacing: 8px;
+            white-space: nowrap;
+        }
 
         .notice-board {
-            background: var(--paper-bg); background-image: url('https://www.transparenttextures.com/patterns/cream-paper.png');
-            border: 8px solid var(--wood-light); border-radius: 20px; padding: 40px; width: 100%; box-shadow: 0 20px 40px rgba(0,0,0,0.6), inset 0 0 40px rgba(139, 94, 60, 0.2);
+            background: var(--paper-bg);
+            background-image: url('https://www.transparenttextures.com/patterns/cream-paper.png');
+            border: 8px solid var(--wood-light);
+            border-radius: 20px;
+            padding: 40px;
+            width: 100%;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.6), inset 0 0 40px rgba(139, 94, 60, 0.2);
         }
 
-        .btn-group { display: flex; gap: 30px; justify-content: center; width: 100%; }
+        .btn-group {
+            display: flex;
+            gap: 30px;
+            justify-content: center;
+            width: 100%;
+        }
 
         .action-btn {
-            background: linear-gradient(to bottom, #fcd34d, #f59e0b); color: #78350f; border: 4px solid #92400e; border-radius: 12px;
-            padding: 15px 40px; font-size: 2rem; cursor: pointer; box-shadow: 0 8px 15px rgba(0,0,0,0.5); transition: all 0.2s; font-family: 'ZCOOL KuaiLe', cursive; font-weight: bold;
+            background: linear-gradient(to bottom, #fcd34d, #f59e0b);
+            color: #78350f;
+            border: 4px solid #92400e;
+            border-radius: 12px;
+            padding: 15px 40px;
+            font-size: 2rem;
+            cursor: pointer;
+            box-shadow: 0 8px 15px rgba(0,0,0,0.5);
+            transition: all 0.2s;
+            font-family: 'ZCOOL KuaiLe', cursive;
+            font-weight: bold;
         }
-        .action-btn:hover { transform: translateY(-5px); box-shadow: 0 12px 20px rgba(0,0,0,0.6); background: linear-gradient(to bottom, #fde047, #d97706); }
-        .action-btn-primary { background: linear-gradient(to bottom, #ef4444, #b91c1c); color: #fff; border-color: #7f1d1d; transform: scale(1.1); }
-        .action-btn-primary:hover { background: linear-gradient(to bottom, #f87171, #dc2626); transform: translateY(-5px) scale(1.1); }
+        .action-btn:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 20px rgba(0,0,0,0.6);
+            background: linear-gradient(to bottom, #fde047, #d97706);
+        }
 
-        .input-field { font-size: 1.8rem; padding: 10px 20px; border: 4px solid var(--wood-light); border-radius: 12px; text-align: center; outline: none; width: 250px; background: rgba(255,255,255,0.8); font-family: 'ZCOOL KuaiLe', cursive; }
+        .action-btn-primary {
+            background: linear-gradient(to bottom, #ef4444, #b91c1c);
+            color: #fff;
+            border-color: #7f1d1d;
+            transform: scale(1.1);
+        }
+        .action-btn-primary:hover {
+            background: linear-gradient(to bottom, #f87171, #dc2626);
+            transform: translateY(-5px) scale(1.1);
+        }
 
-        .game-board { width: 100%; max-width: 1200px; min-height: 100vh; padding: 20px 10px; display: flex; flex-direction: column; gap: 15px; }
-        .top-bar { display: flex; justify-content: center; gap: 40px; height: 70px; flex-shrink: 0; }
-        .status-badge { background: var(--paper-bg); border: 4px solid var(--wood-light); border-radius: 50px; padding: 10px 40px; font-size: 2rem; color: #5d3a1a; display: flex; align-items: center; gap: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.4); font-weight: bold; }
+        .game-board {
+            width: 100%;
+            max-width: 1200px;
+            height: 95vh;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
 
-        .card-stage { flex: 1; display: flex; justify-content: center; align-items: center; gap: 20px; flex-wrap: wrap; }
+        .top-bar {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            height: 70px;
+        }
+
+        .status-badge {
+            background: var(--paper-bg);
+            border: 4px solid var(--wood-light);
+            border-radius: 50px;
+            padding: 10px 40px;
+            font-size: 2rem;
+            color: #5d3a1a;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.4);
+            font-weight: bold;
+        }
+
+        .card-stage {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+        }
+
         .treasure-card {
-            background: #fffaf0; border: 5px solid var(--wood-light); border-radius: 15px; width: 190px; height: 310px; display: flex; flex-direction: column; cursor: pointer; position: relative; box-shadow: 5px 10px 20px rgba(0,0,0,0.4); transition: all 0.2s; overflow: hidden; flex-shrink: 0;
+            background: #fffaf0;
+            border: 5px solid var(--wood-light);
+            border-radius: 15px;
+            width: 190px;
+            height: 310px;
+            display: flex;
+            flex-direction: column;
+            cursor: pointer;
+            position: relative;
+            box-shadow: 5px 10px 20px rgba(0,0,0,0.4);
+            transition: all 0.2s;
+            overflow: hidden;
         }
-        .treasure-card:hover:not(.locked) { transform: translateY(-10px); border-color: var(--tiger-gold); box-shadow: 0 15px 30px rgba(245, 158, 11, 0.4); }
-        .treasure-card.locked { filter: grayscale(0.8) brightness(0.8); pointer-events: none; transform: scale(0.95); }
+        .treasure-card:hover:not(.locked) {
+            transform: translateY(-10px);
+            border-color: var(--tiger-gold);
+            box-shadow: 0 15px 30px rgba(245, 158, 11, 0.4);
+        }
+        .treasure-card.locked {
+            filter: grayscale(0.8) brightness(0.8);
+            pointer-events: none;
+            transform: scale(0.95);
+        }
 
-        .card-grid { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 2px; background: var(--wood-light); padding: 2px; border-bottom: 3px solid var(--wood-light); }
-        .stat-cell { background: var(--paper-bg); display: flex; align-items: center; justify-content: center; gap: 5px; padding: 8px 0; font-size: 1.5rem; font-weight: 900; }
-        .card-art { flex: 1; display: flex; align-items: center; justify-content: center; background: radial-gradient(circle, #fff 0%, #fef3c7 100%); position: relative; }
+        .card-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            gap: 2px;
+            background: var(--wood-light);
+            padding: 2px;
+            border-bottom: 3px solid var(--wood-light);
+        }
+        .stat-cell {
+            background: var(--paper-bg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            padding: 8px 0;
+            font-size: 1.5rem;
+            font-weight: 900;
+        }
+
+        .card-art {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: radial-gradient(circle, #fff 0%, #fef3c7 100%);
+            position: relative;
+        }
         .card-art i { font-size: 5rem; filter: drop-shadow(2px 3px 2px rgba(0,0,0,0.2)); }
-        .card-name { background: var(--wood-light); color: white; text-align: center; padding: 10px; font-size: 1.2rem; font-weight: bold; }
-        .stamp { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-15deg); color: white; padding: 5px 15px; font-size: 1.5rem; border: 3px solid white; border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.5); z-index: 10; white-space: nowrap; }
+        
+        .card-name {
+            background: var(--wood-light);
+            color: white;
+            text-align: center;
+            padding: 10px;
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
 
-        .bottom-scroll { min-height: 250px; flex-shrink: 0; background: var(--paper-bg); background-image: url('https://www.transparenttextures.com/patterns/old-map.png'); border: 6px solid var(--wood-dark); border-radius: 20px; padding: 15px 40px; box-shadow: inset 0 0 40px rgba(0,0,0,0.2), 0 -10px 30px rgba(0,0,0,0.5); display: flex; flex-direction: column; justify-content: center; position: relative; overflow-y: auto; overflow-x: auto; }
-        .roller { position: absolute; top: -10px; bottom: -10px; width: 35px; background: linear-gradient(to right, #4a2e15, #8b5e3c, #4a2e15); border: 3px solid #1a0f05; border-radius: 15px; }
+        .stamp {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%) rotate(-15deg);
+            color: white;
+            padding: 5px 15px;
+            font-size: 1.5rem;
+            border: 3px solid white;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+            z-index: 10;
+            white-space: nowrap;
+        }
+
+        .bottom-scroll {
+            height: 250px;
+            background: var(--paper-bg);
+            background-image: url('https://www.transparenttextures.com/patterns/old-map.png');
+            border: 6px solid var(--wood-dark);
+            border-radius: 20px;
+            padding: 15px 40px;
+            box-shadow: inset 0 0 40px rgba(0,0,0,0.2), 0 -10px 30px rgba(0,0,0,0.5);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            position: relative;
+        }
+
+        .roller {
+            position: absolute;
+            top: -10px; bottom: -10px; width: 35px;
+            background: linear-gradient(to right, #4a2e15, #8b5e3c, #4a2e15);
+            border: 3px solid #1a0f05;
+            border-radius: 15px;
+        }
+
         table { width: 100%; border-collapse: separate; border-spacing: 0 6px; }
         th { border-bottom: 3px solid var(--wood-light); padding-bottom: 8px; font-size: 1.3rem; color: #5d3a1a;}
         td { padding: 8px; text-align: center; font-size: 1.5rem; font-weight: 900; background: rgba(255,255,255,0.6); border-top: 2px solid var(--wood-light); border-bottom: 2px solid var(--wood-light);}
         td:first-child { border-left: 2px solid var(--wood-light); border-radius: 10px 0 0 10px; }
         td:last-child { border-right: 2px solid var(--wood-light); border-radius: 0 10px 10px 0; }
+        
         .row-me td { background: rgba(245, 158, 11, 0.3); color: #92400e; }
         .row-dead td { background: rgba(220, 38, 38, 0.15); color: #b91c1c; text-decoration: line-through; }
         .danger-text { color: var(--blood-red); animation: blink 1s infinite alternate; }
 
-        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; z-index: 100; backdrop-filter: blur(5px); }
-        .modal-box { background: var(--paper-bg); border: 10px solid var(--wood-dark); border-radius: 30px; padding: 40px; width: 90%; max-width: 800px; max-height: 90vh; overflow-y: auto; text-align: center; position: relative; box-shadow: 0 20px 50px rgba(0,0,0,0.8); }
-        .close-btn { position: absolute; top: 15px; right: 20px; font-size: 3rem; color: #78350f; cursor: pointer; transition: transform 0.2s; }
+        .modal-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+            display: flex; align-items: center; justify-content: center; z-index: 100;
+            backdrop-filter: blur(5px);
+        }
+        .modal-box {
+            background: var(--paper-bg);
+            border: 10px solid var(--wood-dark);
+            border-radius: 30px;
+            padding: 40px;
+            width: 90%; max-width: 800px;
+            max-height: 90vh; overflow-y: auto;
+            text-align: center;
+            position: relative;
+        }
+        .close-btn {
+            position: absolute; top: 15px; right: 20px; font-size: 3rem; color: #78350f; cursor: pointer;
+            transition: transform 0.2s;
+        }
         .close-btn:hover { transform: scale(1.1) rotate(90deg); color: #dc2626; }
-        .gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 15px; margin-top: 20px; }
-        .gallery-item { background: #fff; border: 3px solid var(--wood-light); border-radius: 10px; padding: 10px; display: flex; align-items: center; gap: 15px; text-align: left; }
+        
+        .gallery-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 15px; margin-top: 20px;
+        }
+        .gallery-item {
+            background: #fff; border: 3px solid var(--wood-light); border-radius: 10px; padding: 10px;
+            display: flex; align-items: center; gap: 15px; text-align: left;
+        }
     </style>
 </head>
 <body>
     <div id="root"></div>
 
-    <!-- 关键改动：使用 type="text/babel" 并搭配 data-type="module" 以支持 ES Modules (Firestore) -->
-    <script type="text/babel" data-type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot, runTransaction, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    <script type="text/babel">
+        const { useState, useEffect } = React;
 
-        // 1. 初始化 Firebase Firestore 
-        let firebaseConfig;
-        try {
-            // 优先使用当前平台的内置云环境，如果脱离平台则使用你提供的配置
-            firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
-                apiKey: "AIzaSyB8yhiOueicbUtz676uFpWPRIdGJibZFZQ",
-                authDomain: "mygame-275e8.firebaseapp.com",
-                projectId: "mygame-275e8",
-                storageBucket: "mygame-275e8.firebasestorage.app",
-                messagingSenderId: "557892423493",
-                appId: "1:557892423493:web:5fb30fbbbc52307a99382c"
-            };
-        } catch(e) {
-            console.warn("解析内置配置失败");
-        }
-        
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        const APP_ID = typeof __app_id !== 'undefined' ? __app_id : "tigercave"; 
-
-        // 2. 物品数据字典
         const ITEMS = [
             { id: 1, name: "虎穴残页", v: 1, w: 0, t: 0, f: 0, icon: "fa-scroll", color: "#a1a1aa" },
             { id: 2, name: "一节枯骨", v: 2, w: 0, t: 1, f: 0, icon: "fa-bone", color: "#d6d3d1" },
@@ -133,651 +311,332 @@
             { id: 11, name: "狂暴虎魂", v: 12, w: 3, t: 0, f: 3, icon: "fa-fire", color: "#ef4444" }
         ];
 
-        const { useState, useEffect, useCallback, useRef } = React;
-
         const App = () => {
             const [view, setView] = useState('START'); 
             const [modal, setModal] = useState(null); 
-            const [gameMode, setGameMode] = useState(null);
             
-            const [sysMsg, setSysMsg] = useState("");
-            const showAlert = (msg) => setSysMsg(msg);
-            
-            const aiTimers = useRef([]);
+            // WebSocket 联机状态
+            const [ws, setWs] = useState(null);
+            const [wsAddress, setWsAddress] = useState("localhost:8080");
+            const [playerName, setPlayerName] = useState("探险家");
+            const [myId, setMyId] = useState(null);
+            const [isConnected, setIsConnected] = useState(false);
+            const [errorMsg, setErrorMsg] = useState("");
 
-            // ==== Firebase Auth (联机必填前提) ====
-            // ==== Firebase Auth (大富翁同款黑科技版) ====
-            const [user, setUser] = useState(null);
-            useEffect(() => {
-                const initAuth = async () => {
-                    // 1. 像大富翁一样，先捏造一个随机的假身份
-                    let fakeUid = "guest-" + Math.random().toString(36).substr(2, 9);
-                    
-                    try {
-                        await signInAnonymously(auth); // 去撞一下南墙
-                    } catch (error) {
-                        // 2. 撞墙后吃掉报错！不弹窗，不卡死，假装无事发生
-                        console.warn("触发大富翁同款黑科技：忽略 API Key 限制，强行潜入数据库。");
-                    }
-                    
-                    // 3. 强行给游戏注入这个假身份，骗过后面的联机检查
-                    setUser({ uid: fakeUid });
-                };
-                initAuth();
-                
-                // 4. 关键：把官方的真实状态监听器废掉，防止它把我们造的假身份重置为空
-                // const unsubscribe = onAuthStateChanged(auth, setUser);
-                // return () => unsubscribe();
-            }, []);
-
-
-            // ================= 【单机模式】 =================
+            // 由 Python 服务端管理的权威游戏数据
             const [round, setRound] = useState(1);
             const [timer, setTimer] = useState(9);
             const [pool, setPool] = useState([]);
             const [players, setPlayers] = useState([]);
             const [endReason, setEndReason] = useState("");
 
-            const startSingleGame = () => {
-                setGameMode('SINGLE'); setModal(null); setRound(1);
-                const initPlayers = [
-                    { id: 0, name: "我 (探险家)", stats: { v: 0, w: 0, t: 0, f: 0 }, alive: true, reason: "", hasPicked: false },
-                    { id: 1, name: "贪婪者 A", stats: { v: 0, w: 0, t: 0, f: 0 }, alive: true, reason: "", hasPicked: false },
-                    { id: 2, name: "谨慎者 B", stats: { v: 0, w: 0, t: 0, f: 0 }, alive: true, reason: "", hasPicked: false },
-                    { id: 3, name: "博弈者 C", stats: { v: 0, w: 0, t: 0, f: 0 }, alive: true, reason: "", hasPicked: false }
-                ];
-                setPlayers(initPlayers);
-                setPool([...ITEMS].sort(() => 0.5 - Math.random()).slice(0, 5).map(item => ({ ...item, uid: Math.random(), takenBy: -1 })));
-                setTimer(9); setView('PLAY');
-            };
-
-            const executePickSingle = (playerId, itemIdx) => {
-                setPool(prev => {
-                    if (!prev[itemIdx] || prev[itemIdx].takenBy !== -1) return prev;
-                    const next = [...prev]; next[itemIdx].takenBy = playerId;
-                    setPlayers(pPrev => {
-                        if (!pPrev[playerId] || pPrev[playerId].hasPicked) return pPrev;
-                        const pNext = [...pPrev];
-                        pNext[playerId] = { ...pNext[playerId], stats: { ...pNext[playerId].stats }, hasPicked: true };
-                        const item = next[itemIdx];
-                        pNext[playerId].stats.v += item.v; pNext[playerId].stats.w += item.w;
-                        pNext[playerId].stats.t += item.t; pNext[playerId].stats.f += item.f;
-                        return pNext;
-                    });
-                    return next;
-                });
-            };
-
-            const handleRoundEndSingle = useCallback(() => {
-                let isEnd = false; let msg = "";
-                if (round >= 10) { isEnd = true; msg = "十回合届满，虎穴崩塌！"; }
-                else if (round >= 6 && Math.random() < [0,0,0,0,0, 0.1, 0.25, 0.45, 0.7][round]) { isEnd = true; msg = `突发状况！第 ${round} 回合发生洞穴陷落！`; }
-                
-                if (isEnd) {
-                    setEndReason(msg); setView('END');
-                    setPlayers(prev => {
-                        const maxW = Math.max(...prev.map(p => p.stats.w)); const maxT = Math.max(...prev.map(p => p.stats.t));
-                        return prev.map(p => {
-                            let dead = false; let reason = "逃出生天！";
-                            if (p.stats.f > p.stats.t) { dead = true; reason = "腥味盖过虎气，被群狼分食"; }
-                            else if (p.stats.w === maxW && maxW > 0) { dead = true; reason = "全场负重最高，被落石掩埋"; }
-                            else if (p.stats.t === maxT && maxT > 0) { dead = true; reason = "全场虎气最盛，激怒了虎王"; }
-                            return { ...p, alive: !dead, reason };
-                        });
-                    });
-                } else { 
-                    setRound(r => r + 1); setTimer(9);
-                    setPool([...ITEMS].sort(() => 0.5 - Math.random()).slice(0, 5).map(item => ({ ...item, uid: Math.random(), takenBy: -1 })));
-                    setPlayers(prev => prev.map(p => ({ ...p, hasPicked: false })));
-                }
-            }, [round]);
-
-            useEffect(() => {
-                if (view === 'PLAY' && gameMode === 'SINGLE') {
-                    aiTimers.current.forEach(clearTimeout); aiTimers.current = [];
-                    [1, 2, 3].forEach(aiId => {
-                        const t = setTimeout(() => {
-                            setPool(curr => {
-                                const avail = curr.map((it, i) => it.takenBy === -1 ? i : -1).filter(i => i !== -1);
-                                if (avail.length > 0) executePickSingle(aiId, avail[Math.floor(Math.random() * avail.length)]);
-                                return curr;
-                            });
-                        }, 1000 + Math.random() * 4000);
-                        aiTimers.current.push(t);
-                    });
-                    const countdown = setInterval(() => { setTimer(t => { if (t <= 1) { handleRoundEndSingle(); return 9; } return t - 1; }); }, 1000);
-                    return () => { clearInterval(countdown); aiTimers.current.forEach(clearTimeout); };
-                }
-            }, [round, view, gameMode, handleRoundEndSingle]);
-
-
-            // ================= 【联机模式】Firestore 架构 =================
-            const [myUuid] = useState(() => Math.random().toString(36).substring(2, 10));
-            const [playerName, setPlayerName] = useState("");
-            const [joinCodeInput, setJoinCodeInput] = useState("");
-            const [roomId, setRoomId] = useState("");
-            const [playerId, setPlayerId] = useState(-1);
-            const [isHost, setIsHost] = useState(false);
-            const [gameState, setGameState] = useState(null);
-
-            // 统一 Firestore 引用路径获取方法
-            const getRoomRef = (rid) => doc(db, 'artifacts', APP_ID, 'public', 'data', 'rooms', rid);
-
-            const gotoMultiSetup = () => { 
-                if (!user) return showAlert("正在连接服务器进行身份认证，请稍等几秒再点击...");
-                setGameMode('MULTI'); setModal(null); setView('MULTI_SETUP'); 
-            };
-
-            const createRoom = async () => {
-                if (!user) return showAlert("尚未连接到服务器...");
-                const name = playerName.trim() || "房主"; const newRoomId = Math.floor(1000 + Math.random() * 9000).toString();
-                showAlert("正在建立新房间，请稍候...");
+            const connectServer = () => {
+                if (!wsAddress) return;
+                setErrorMsg("");
                 try {
-                    const roomRef = getRoomRef(newRoomId);
-                    await setDoc(roomRef, {
-                        status: 'WAITING', round: 1, timer: 9, endReason: "",
-                        players: [{ id: 0, uuid: myUuid, name: name, isAI: false, stats: { v: 0, w: 0, t: 0, f: 0 }, alive: true, reason: "", hasPicked: false }],
-                        pool: []
-                    });
-                    console.log("Firestore: 房间创建成功", newRoomId);
-                    setSysMsg("");
-                    setRoomId(newRoomId); setIsHost(true); setPlayerId(0);
-                    setView('LOBBY');
-                } catch(e) {
-                    console.error("创建房间失败:", e);
-                    showAlert("创建失败：" + e.message);
-                }
-            };
+                    const socket = new WebSocket(`ws://${wsAddress.trim()}`);
+                    
+                    socket.onopen = () => {
+                        setIsConnected(true);
+                        setWs(socket);
+                        socket.send(JSON.stringify({ type: "join", name: playerName.trim() || "探险家" }));
+                    };
 
-            const joinRoomAction = async () => {
-                if (!user) return showAlert("尚未连接到服务器...");
-                const code = joinCodeInput.trim(); 
-                if (!code) return showAlert("请输入要加入的房间号！");
-                const name = playerName.trim() || `玩家_${myUuid.substring(0,3)}`;
-                
-                showAlert(`正在通过 Firestore 连接房间 [${code}]...`);
-                try {
-                    const roomRef = getRoomRef(code);
-                    await runTransaction(db, async (transaction) => {
-                        const roomDoc = await transaction.get(roomRef);
-                        if (!roomDoc.exists()) throw new Error("NOT_FOUND");
-                        
-                        const data = roomDoc.data();
-                        if (data.status !== 'WAITING') throw new Error("NOT_WAITING");
-                        
-                        const cPlayers = data.players || [];
-                        if (cPlayers.length >= 4) throw new Error("FULL");
-                        
-                        // 防止重复加入
-                        if (!cPlayers.find(p => p.uuid === myUuid)) {
-                            cPlayers.push({ id: cPlayers.length, uuid: myUuid, name: name, isAI: false, stats: { v: 0, w: 0, t: 0, f: 0 }, alive: true, reason: "", hasPicked: false });
-                            transaction.update(roomRef, { players: cPlayers });
-                        }
-                    });
-
-                    console.log("Firestore: 成功加入房间");
-                    setSysMsg(""); 
-                    setRoomId(code); setIsHost(false); setView('LOBBY');
-
-                } catch (error) {
-                    console.error("加入流程故障:", error);
-                    if (error.message === "NOT_FOUND") showAlert(`房间号 [${code}] 不存在！`);
-                    else if (error.message === "NOT_WAITING") showAlert("该房间已经发车，无法中途加入。");
-                    else if (error.message === "FULL") showAlert("该房间人数已满（4人）。");
-                    else showAlert("连接失败: " + error.message);
-                }
-            };
-
-            const addAI = async () => {
-                if(!isHost || !user) return;
-                try {
-                    await runTransaction(db, async (transaction) => {
-                        const roomRef = getRoomRef(roomId);
-                        const roomDoc = await transaction.get(roomRef);
-                        if (!roomDoc.exists()) return;
-                        
-                        const data = roomDoc.data();
-                        const cPlayers = data.players || [];
-                        if(cPlayers.length >= 4) return;
-                        
-                        const aiNames = ["贪婪者 A", "谨慎者 B", "博弈者 C"]; const nextId = cPlayers.length;
-                        cPlayers.push({ id: nextId, uuid: `AI_${Math.random()}`, name: aiNames[nextId-1] || `AI_${nextId}`, isAI: true, stats: { v: 0, w: 0, t: 0, f: 0 }, alive: true, reason: "", hasPicked: false });
-                        transaction.update(roomRef, { players: cPlayers });
-                    });
-                } catch(e) { console.error("Add AI Error:", e); }
-            };
-
-            const startMultiGame = async () => {
-                if(!isHost || !user) return;
-                const currentPlayers = gameState?.players || [];
-                if (currentPlayers.length < 4) return showAlert("必须凑齐 4 人（或添加 AI）才能开始！");
-                
-                try {
-                    await runTransaction(db, async (transaction) => {
-                        const roomRef = getRoomRef(roomId);
-                        const roomDoc = await transaction.get(roomRef);
-                        if (!roomDoc.exists()) return;
-                        
-                        const data = roomDoc.data();
-                        const newPool = [...ITEMS].sort(() => 0.5 - Math.random()).slice(0, 5).map(item => ({...item, uid: Math.random(), takenBy: -1}));
-                        const cPlayers = data.players || [];
-                        cPlayers.forEach(p => { p.stats = { v: 0, w: 0, t: 0, f: 0 }; p.alive = true; p.reason = ""; p.hasPicked = false; });
-                        
-                        transaction.update(roomRef, { status: 'PLAY', round: 1, timer: 9, endReason: "", pool: newPool, players: cPlayers });
-                    });
-                } catch(e) { console.error("Start Game Error:", e); }
-            };
-
-            const executePickMulti = async (itemIdx) => {
-                if (playerId === -1 || !user) return;
-                try {
-                    await runTransaction(db, async (transaction) => {
-                        const roomRef = getRoomRef(roomId);
-                        const roomDoc = await transaction.get(roomRef);
-                        if (!roomDoc.exists()) return;
-                        
-                        const data = roomDoc.data();
-                        if (data.status !== 'PLAY' && data.status !== 'PLAYING') return;
-
-                        const cPlayers = data.players || [];
-                        const cPool = data.pool || [];
-
-                        if (!cPlayers[playerId] || cPlayers[playerId].hasPicked || !cPool[itemIdx] || cPool[itemIdx].takenBy !== -1) return;
-                        
-                        cPool[itemIdx].takenBy = playerId; 
-                        const item = cPool[itemIdx];
-                        cPlayers[playerId].stats.v += item.v; cPlayers[playerId].stats.w += item.w;
-                        cPlayers[playerId].stats.t += item.t; cPlayers[playerId].stats.f += item.f;
-                        cPlayers[playerId].hasPicked = true; 
-                        
-                        transaction.update(roomRef, { pool: cPool, players: cPlayers });
-                    });
-                } catch(e) { console.error("Pick Error:", e); }
-            };
-
-            // 联机数据同步监听 (Firestore onSnapshot)
-            useEffect(() => {
-                if (!roomId || gameMode !== 'MULTI' || !user) return;
-                const roomRef = getRoomRef(roomId);
-                const unsubscribe = onSnapshot(roomRef, (docSnap) => {
-                    if (docSnap.exists()) {
-                        const data = docSnap.data();
-                        setGameState(data); 
-                        setView(data.status === 'WAITING' ? 'LOBBY' : data.status);
-                        const cPlayers = data.players || [];
-                        const myIdx = cPlayers.findIndex(p => p.uuid === myUuid);
-                        if(myIdx !== -1) setPlayerId(myIdx);
-                    } else {
-                        setRoomId(""); setGameState(null); setView('START'); showAlert("此房间已被解散或关闭。");
-                    }
-                }, (error) => {
-                    console.error("Firestore Listen Error:", error);
-                });
-                return () => unsubscribe();
-            }, [roomId, myUuid, gameMode, user]);
-
-            // 联机计时器 (房主独占，使用 Firestore Transaction 安全更新)
-            useEffect(() => {
-                if (!isHost || (view !== 'PLAY' && view !== 'PLAYING') || gameMode !== 'MULTI' || !roomId || !user) return;
-                const interval = setInterval(async () => {
-                    try {
-                        await runTransaction(db, async (transaction) => {
-                            const roomRef = getRoomRef(roomId);
-                            const roomDoc = await transaction.get(roomRef);
-                            if (!roomDoc.exists()) return;
-                            const data = roomDoc.data();
-                            if (data.status !== 'PLAY' && data.status !== 'PLAYING') return;
-
-                            if (data.timer > 1) { 
-                                transaction.update(roomRef, { timer: data.timer - 1 });
-                            } else {
-                                let isEnd = false; let msg = "";
-                                if (data.round >= 10) { isEnd = true; msg = "十回合届满，虎穴崩塌！"; }
-                                else if (data.round >= 6 && Math.random() < [0,0,0,0,0, 0.1, 0.25, 0.45, 0.7][data.round]) { isEnd = true; msg = `突发状况！第 ${data.round} 回合发生洞穴陷落！`; }
-
-                                const cPlayers = data.players || [];
-                                if (isEnd) {
-                                    const maxW = Math.max(...cPlayers.map(p => p.stats.w)); 
-                                    const maxT = Math.max(...cPlayers.map(p => p.stats.t));
-                                    cPlayers.forEach(p => {
-                                        p.alive = true; p.reason = "逃出生天！";
-                                        if (p.stats.f > p.stats.t) { p.alive = false; p.reason = "腥味盖过虎气，被群狼分食"; }
-                                        else if (p.stats.w === maxW && maxW > 0) { p.alive = false; p.reason = "全场负重最高，被落石掩埋"; }
-                                        else if (p.stats.t === maxT && maxT > 0) { p.alive = false; p.reason = "全场虎气最盛，激怒了虎王"; }
-                                    });
-                                    transaction.update(roomRef, { status: 'END', endReason: msg, players: cPlayers });
-                                } else {
-                                    const newPool = [...ITEMS].sort(() => 0.5 - Math.random()).slice(0, 5).map(item => ({...item, uid: Math.random(), takenBy: -1}));
-                                    cPlayers.forEach(p => p.hasPicked = false);
-                                    transaction.update(roomRef, { round: data.round + 1, timer: 9, pool: newPool, players: cPlayers });
+                    socket.onmessage = (event) => {
+                        try {
+                            const data = JSON.parse(event.data);
+                            if (data.type === "sync") {
+                                const st = data.state;
+                                setRound(st.round);
+                                setTimer(st.timer);
+                                setPool(st.pool);
+                                setPlayers(st.players);
+                                setEndReason(st.endReason);
+                                
+                                // 响应主机的全局视图切换
+                                if (st.view === 'LOBBY') {
+                                    setView('START');
+                                    setModal('CONNECT');
+                                } else if (st.view === 'PLAY') {
+                                    setView('PLAY');
+                                    setModal(null);
+                                } else if (st.view === 'END') {
+                                    setView('END');
                                 }
+                            } else if (data.type === "joined") {
+                                setMyId(data.myId);
+                            } else if (data.type === "error") {
+                                setErrorMsg(data.msg);
+                                socket.close();
                             }
-                        });
-                    } catch(e) { console.error("Timer Error:", e); }
-                }, 1000);
-                return () => clearInterval(interval);
-            }, [isHost, view, roomId, gameMode, user]);
+                        } catch (e) { console.error(e); }
+                    };
 
-            // 联机 AI 托管 (房主独占)
-            useEffect(() => {
-                if (!isHost || (view !== 'PLAY' && view !== 'PLAYING') || gameMode !== 'MULTI' || !gameState || !roomId || !user) return;
-                aiTimers.current.forEach(clearTimeout); aiTimers.current = [];
-                const currentPlayers = gameState.players || [];
-                
-                currentPlayers.forEach((p, idx) => {
-                    if (p.isAI && !p.hasPicked) {
-                        const delay = 1500 + Math.random() * 3000;
-                        const t = setTimeout(async () => {
-                            try {
-                                await runTransaction(db, async (transaction) => {
-                                    const roomRef = getRoomRef(roomId);
-                                    const roomDoc = await transaction.get(roomRef);
-                                    if (!roomDoc.exists()) return;
-                                    
-                                    const data = roomDoc.data();
-                                    if (data.status !== 'PLAY' && data.status !== 'PLAYING') return;
+                    socket.onerror = () => {
+                        setErrorMsg("连接失败！请确认 Python 服务端已开启且局域网 IP 正确。");
+                        setIsConnected(false);
+                        setWs(null);
+                    };
 
-                                    const cPlayers = data.players || [];
-                                    const cPool = data.pool || [];
-
-                                    if (!cPlayers[idx] || cPlayers[idx].hasPicked) return;
-                                    
-                                    const avail = cPool.map((it, i) => it.takenBy === -1 ? i : -1).filter(i => i !== -1);
-                                    if (avail.length > 0) {
-                                        const pickIdx = avail[Math.floor(Math.random() * avail.length)];
-                                        cPool[pickIdx].takenBy = idx; 
-                                        const item = cPool[pickIdx];
-                                        cPlayers[idx].stats.v += item.v; cPlayers[idx].stats.w += item.w;
-                                        cPlayers[idx].stats.t += item.t; cPlayers[idx].stats.f += item.f;
-                                        cPlayers[idx].hasPicked = true;
-                                        transaction.update(roomRef, { pool: cPool, players: cPlayers });
-                                    }
-                                });
-                            } catch(e) { console.error("AI Error:", e); }
-                        }, delay);
-                        aiTimers.current.push(t);
-                    }
-                });
-                return () => aiTimers.current.forEach(clearTimeout);
-            }, [isHost, view, roomId, gameState?.round, gameMode, user]); 
-
-            const returnToCamp = async () => {
-                if (gameMode === 'SINGLE') { setView('START'); } 
-                else {
-                    if(isHost && user) {
-                        try { await deleteDoc(getRoomRef(roomId)); } catch(e){}
-                    }
-                    setRoomId(""); setGameState(null); setView('START'); 
+                    socket.onclose = () => {
+                        setIsConnected(false);
+                        setWs(null);
+                    };
+                } catch (e) {
+                    setErrorMsg("WebSocket 地址格式填写错误！");
                 }
             };
 
-            // ================= 视图渲染 =================
-            
-            const isLoadingMsg = typeof sysMsg === 'string' && sysMsg.includes("请稍候");
+            const executePick = (idx) => {
+                if (ws && isConnected) {
+                    ws.send(JSON.stringify({ type: "pick", itemIdx: idx }));
+                }
+            };
 
-            return (
-                <>
-                    {/* ====== 自定义系统提示弹窗 ====== */}
-                    {sysMsg && (
-                        <div className="modal-overlay" style={{ zIndex: 9999 }}>
-                            <div className="modal-box" style={{ maxWidth: '450px', padding: '40px', border: `8px solid ${isLoadingMsg ? '#f59e0b' : '#dc2626'}` }}>
-                                <i className={`fas ${isLoadingMsg ? 'fa-spinner fa-spin text-orange-500' : 'fa-exclamation-circle text-red-600 animate-pulse'} text-7xl mb-6`}></i>
-                                <h2 className="text-3xl text-stone-800 font-bold mb-8 leading-relaxed">{sysMsg}</h2>
-                                {!isLoadingMsg && (
-                                    <button onClick={() => setSysMsg("")} className="action-btn action-btn-primary w-full text-2xl">确 定</button>
-                                )}
-                            </div>
+            const myPlayer = players.find(p => p.id === myId);
+            const myHasPicked = myPlayer ? myPlayer.hasPicked : false;
+
+            if (view === 'START') {
+                return (
+                    <div className="home-screen">
+                        {/* 原封不动的横向主标题 */}
+                        <div className="title-board">
+                            <h1 className="title-text">勇探虎穴</h1>
                         </div>
-                    )}
 
-                    {view === 'START' && (
-                        <div className="home-screen">
-                            <div className="title-board"><h1 className="title-text">勇探虎穴</h1></div>
-                            <div className="notice-board">
-                                <p className="text-center text-3xl mb-6 font-bold text-amber-900 border-b-4 border-amber-900 pb-4">
-                                    进入虎穴寻找无尽的宝藏吧！<br/>
-                                    <span className="text-2xl text-red-600 mt-2 block">警告：贪婪拿得太多，最终会害了自己！</span>
-                                </p>
-                                <ul className="text-2xl space-y-5 font-bold text-stone-800 flex flex-col items-center">
-                                    <li className="flex items-center bg-white/50 px-6 py-3 rounded-lg border-2 border-stone-300 w-full max-w-lg">
-                                        <i className="fas fa-weight-hanging text-stone-600 w-12 text-center text-3xl"></i>负重全场最高者：<strong className="text-red-600 text-3xl ml-auto">死！</strong>
-                                    </li>
-                                    <li className="flex items-center bg-white/50 px-6 py-3 rounded-lg border-2 border-stone-300 w-full max-w-lg">
-                                        <i className="fas fa-paw text-orange-600 w-12 text-center text-3xl"></i>虎气全场最盛者：<strong className="text-red-600 text-3xl ml-auto">死！</strong>
-                                    </li>
-                                    <li className="flex items-center bg-white/50 px-6 py-3 rounded-lg border-2 border-stone-300 w-full max-w-lg">
-                                        <i className="fas fa-droplet text-red-600 w-12 text-center text-3xl"></i>自身腥味多于虎气：<strong className="text-red-600 text-3xl ml-auto">死！</strong>
-                                    </li>
-                                </ul>
-                            </div>
-                            <div className="btn-group">
-                                <button onClick={() => setModal('RULES')} className="action-btn">规则说明</button>
-                                <button onClick={() => setModal('MODE_SELECT')} className="action-btn action-btn-primary">潜入虎穴</button>
-                                <button onClick={() => setModal('ITEMS')} className="action-btn">物品图鉴</button>
-                            </div>
+                        {/* 原封不动的居中生存法则公告板 */}
+                        <div className="notice-board">
+                            <p className="text-center text-3xl mb-6 font-bold text-amber-900 border-b-4 border-amber-900 pb-4">
+                                进入虎穴寻找无尽的宝藏吧！<br/>
+                                <span className="text-2xl text-red-600 mt-2 block">警告：贪婪拿得太多，最终会害了自己！</span>
+                            </p>
+                            <ul className="text-2xl space-y-5 font-bold text-stone-800 flex flex-col items-center">
+                                <li className="flex items-center bg-white/50 px-6 py-3 rounded-lg border-2 border-stone-300 w-full max-w-lg">
+                                    <i className="fas fa-weight-hanging text-stone-600 w-12 text-center text-3xl"></i> 
+                                    负重全场最高者：<strong className="text-red-600 text-3xl ml-auto">死！</strong>
+                                </li>
+                                <li className="flex items-center bg-white/50 px-6 py-3 rounded-lg border-2 border-stone-300 w-full max-w-lg">
+                                    <i className="fas fa-paw text-orange-600 w-12 text-center text-3xl"></i> 
+                                    虎气全场最盛者：<strong className="text-red-600 text-3xl ml-auto">死！</strong>
+                                </li>
+                                <li className="flex items-center bg-white/50 px-6 py-3 rounded-lg border-2 border-stone-300 w-full max-w-lg">
+                                    <i className="fas fa-droplet text-red-600 w-12 text-center text-3xl"></i> 
+                                    自身腥味多于虎气：<strong className="text-red-600 text-3xl ml-auto">死！</strong>
+                                </li>
+                            </ul>
+                        </div>
 
-                            {modal && (
-                                <div className="modal-overlay">
-                                    <div className="modal-box">
-                                        <i className="fas fa-times-circle close-btn" onClick={() => setModal(null)}></i>
-                                        {modal === 'MODE_SELECT' && (
-                                            <div className="flex flex-col items-center gap-8 py-8">
-                                                <h2 className="title-font text-6xl text-amber-900 mb-4">选择探险模式</h2>
-                                                <button onClick={startSingleGame} className="action-btn w-3/4 py-6 text-3xl"><i className="fas fa-user mr-4"></i>单机挑战 (含AI)</button>
-                                                <button onClick={gotoMultiSetup} className="action-btn action-btn-primary w-3/4 py-6 text-3xl"><i className="fas fa-users mr-4"></i>多人联机 (好友组队)</button>
-                                            </div>
-                                        )}
-                                        {modal === 'RULES' && (
-                                            <div className="text-left">
-                                                <h2 className="title-font text-5xl text-center mb-6 text-amber-900">生存法则</h2>
-                                                <div className="text-xl space-y-4 font-bold text-stone-800">
-                                                    <p>1. 探险分为 <span className="text-red-600">10个回合</span>，每回合展示 <span className="text-orange-600">5件宝物</span>，先抢先得！</p>
-                                                    <p>2. 第6回合开始，虎穴随时可能坍塌提前结束探险。</p>
-                                                    <p>3. 游戏结束时，所有人进行生死同步判定（符合以下任一条即死）：</p>
-                                                    <ul className="list-disc pl-10 text-red-700 text-2xl space-y-2 mt-2">
-                                                        <li>你身上的【腥味】大于【虎威】。</li>
-                                                        <li>你的【总负重】是全场最高！</li>
-                                                        <li>你的【总虎气】是全场最高！</li>
-                                                    </ul>
-                                                    <p className="mt-6 text-center text-2xl text-orange-800 border-t-2 border-orange-800 pt-4">在所有幸存者中，<strong>【总价值】最高者获胜！</strong></p>
+                        {/* 绝对原封不动的三大经典并排按钮！点击中间打开联机弹窗 */}
+                        <div className="btn-group">
+                            <button onClick={() => setModal('RULES')} className="action-btn">规则说明</button>
+                            <button onClick={() => setModal('CONNECT')} className="action-btn action-btn-primary">潜入虎穴</button>
+                            <button onClick={() => setModal('ITEMS')} className="action-btn">物品图鉴</button>
+                        </div>
+
+                        {/* 完美复用现有系统的模态框 */}
+                        {modal && (
+                            <div className="modal-overlay">
+                                <div className="modal-box">
+                                    <i className="fas fa-times-circle close-btn" onClick={() => setModal(null)}></i>
+                                    
+                                    {/* 优雅新增的联机配置/大厅弹窗视图 */}
+                                    {modal === 'CONNECT' && (
+                                        <div className="text-left">
+                                            <h2 className="title-font text-5xl text-center mb-6 text-amber-900">局域网集结营地</h2>
+                                            
+                                            {!isConnected ? (
+                                                <div className="flex flex-col gap-5 max-w-md mx-auto font-bold text-xl text-stone-800 mt-4">
+                                                    <div className="flex flex-col gap-2">
+                                                        <label>探险家大名：</label>
+                                                        <input type="text" 
+                                                               className="p-3 border-4 border-amber-900 rounded-lg text-center font-bold bg-white"
+                                                               value={playerName} 
+                                                               onChange={e => setPlayerName(e.target.value)} 
+                                                               placeholder="输入你的昵称" />
+                                                    </div>
+                                                    <div className="flex flex-col gap-2">
+                                                        <label>主机端 IP 地址：</label>
+                                                        <input type="text" 
+                                                               className="p-3 border-4 border-amber-900 rounded-lg text-center font-bold font-mono bg-white"
+                                                               value={wsAddress} 
+                                                               onChange={e => setWsAddress(e.target.value)} 
+                                                               placeholder="例如: 192.168.1.10:8080" />
+                                                    </div>
+                                                    {errorMsg && <div className="text-red-600 text-center animate-pulse">{errorMsg}</div>}
+                                                    <button onClick={connectServer} className="action-btn action-btn-primary w-full mt-4">连接房间</button>
                                                 </div>
-                                            </div>
-                                        )}
-                                        {modal === 'ITEMS' && (
-                                            <div>
-                                                <h2 className="title-font text-5xl mb-6 text-amber-900">全物品密卷</h2>
-                                                <div className="gallery-grid">
-                                                    {ITEMS.map(item => (
-                                                        <div key={item.id} className="gallery-item">
-                                                            <div className="text-4xl w-12 text-center" style={{color: item.color}}><i className={`fas ${item.icon}`}></i></div>
-                                                            <div className="flex-1">
-                                                                <div className="font-bold border-b-2 border-amber-900/20 mb-1 pb-1 text-stone-800">{item.name}</div>
-                                                                <div className="grid grid-cols-2 gap-1 text-xs font-bold">
-                                                                    <div className="bg-orange-100 rounded px-1"><i className="fas fa-eye text-orange-500 w-4"></i> {item.v}</div>
-                                                                    <div className="bg-stone-100 rounded px-1"><i className="fas fa-weight-hanging text-stone-500 w-4"></i> {item.w}</div>
-                                                                    <div className="bg-orange-100 rounded px-1"><i className="fas fa-paw text-orange-700 w-4"></i> {item.t}</div>
-                                                                    <div className="bg-red-100 rounded px-1"><i className="fas fa-droplet text-red-600 w-4"></i> {item.f}</div>
+                                            ) : (
+                                                <div className="flex flex-col items-center gap-6 text-stone-800 font-bold mt-4">
+                                                    <div className="text-green-700 text-2xl">🟢 已成功潜入局域网探险房间！</div>
+                                                    
+                                                    <div className="w-full bg-amber-100/80 border-4 border-amber-900 rounded-xl p-5">
+                                                        <div className="text-lg text-amber-900 border-b-2 border-amber-900/20 pb-2 mb-4 text-left">
+                                                            当前营地集结的探险队 ({players.length}/4 人)：
+                                                        </div>
+                                                        <div className="flex flex-wrap gap-3 justify-center">
+                                                            {players.map(p => (
+                                                                <div key={p.id} className="bg-amber-900 text-white px-5 py-2 rounded-full text-lg shadow flex items-center gap-2">
+                                                                    <i className="fas fa-user"></i>{p.name} {p.id === myId ? " (你)" : ""}
                                                                 </div>
+                                                            ))}
+                                                        </div>
+                                                        <div className="text-xs text-stone-600 mt-6 text-center font-normal">
+                                                            提示：人数不足 4 人时点击开始，系统将自动派出 AI 补齐探险阵容。
+                                                        </div>
+                                                    </div>
+
+                                                    <button onClick={() => ws.send(JSON.stringify({ type: "start" }))} className="action-btn action-btn-primary w-full max-w-md">
+                                                        全员就绪，开始探险！
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {modal === 'RULES' && (
+                                        <div className="text-left">
+                                            <h2 className="title-font text-5xl text-center mb-6 text-amber-900">生存法则</h2>
+                                            <div className="text-xl space-y-4 font-bold text-stone-800">
+                                                <p>1. 探险分为 <span className="text-red-600">10个回合</span>，每回合展示 <span className="text-orange-600">5件宝物</span>，先抢先得！</p>
+                                                <p>2. 第6回合开始，虎穴随时可能坍塌提前结束探险。</p>
+                                                <p>3. 游戏结束时，所有人进行生死同步判定（符合以下任一条即死）：</p>
+                                                <ul className="list-disc pl-10 text-red-700 text-2xl space-y-2 mt-2">
+                                                    <li>你身上的【腥味】大于【虎威】。</li>
+                                                    <li>你的【总负重】是全场最高！</li>
+                                                    <li>你的【总虎气】是全场最高！</li>
+                                                </ul>
+                                                <p className="mt-6 text-center text-2xl text-orange-800 border-t-2 border-orange-800 pt-4">在所有幸存者中，<strong>【总价值】最高者获胜！</strong></p>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {modal === 'ITEMS' && (
+                                        <div>
+                                            <h2 className="title-font text-5xl mb-6 text-amber-900">全物品密卷</h2>
+                                            <div className="gallery-grid">
+                                                {ITEMS.map(item => (
+                                                    <div key={item.id} className="gallery-item">
+                                                        <div className="text-4xl w-12 text-center" style={{color: item.color}}><i className={`fas ${item.icon}`}></i></div>
+                                                        <div className="flex-1">
+                                                            <div className="font-bold border-b-2 border-amber-900/20 mb-1 pb-1 text-stone-800">{item.name}</div>
+                                                            <div className="grid grid-cols-2 gap-1 text-xs font-bold">
+                                                                <div className="bg-orange-100 rounded px-1"><i className="fas fa-eye text-orange-500 w-4"></i> {item.v}</div>
+                                                                <div className="bg-stone-100 rounded px-1"><i className="fas fa-weight-hanging text-stone-500 w-4"></i> {item.w}</div>
+                                                                <div className="bg-orange-100 rounded px-1"><i className="fas fa-paw text-orange-700 w-4"></i> {item.t}</div>
+                                                                <div className="bg-red-100 rounded px-1"><i className="fas fa-droplet text-red-600 w-4"></i> {item.f}</div>
                                                             </div>
                                                         </div>
-                                                    ))}
-                                                </div>
+                                                    </div>
+                                                ))}
                                             </div>
-                                        )}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    )}
-
-                    {view === 'MULTI_SETUP' && (
-                        <div className="home-screen">
-                            <div className="title-board"><h1 className="title-text">联机大厅</h1></div>
-                            <div className="notice-board text-center">
-                                <div className="flex flex-col gap-6 items-center">
-                                    <input className="input-field w-64" placeholder="你的探险家代号" value={playerName} onChange={e => setPlayerName(e.target.value)} maxLength="8"/>
-                                    <div className="btn-group border-b-4 border-wood-light pb-6 w-full mt-4">
-                                        <button onClick={createRoom} className="action-btn action-btn-primary">建立新房间 (房主)</button>
-                                    </div>
-                                    <div className="flex items-center gap-4 mt-4">
-                                        <input className="input-field w-40" placeholder="输入4位房间号" value={joinCodeInput} onChange={e => setJoinCodeInput(e.target.value)} maxLength="4"/>
-                                        <button onClick={joinRoomAction} className="action-btn">加入好友房间</button>
-                                    </div>
-                                </div>
-                                <button onClick={() => setView('START')} className="mt-10 text-xl text-stone-500 underline font-bold">返回主菜单</button>
-                            </div>
-                        </div>
-                    )}
-
-                    {view === 'LOBBY' && gameState && (
-                        <div className="home-screen">
-                            <div className="title-board"><h1 className="title-text" style={{fontSize: '5rem'}}>队伍集结</h1></div>
-                            <div className="notice-board text-center">
-                                <h2 className="text-4xl text-amber-900 font-bold mb-4">房间号：<span className="text-red-600 tracking-widest">{roomId}</span></h2>
-                                <p className="text-xl text-stone-600 mb-8">({isHost ? "你是房主，准备就绪后点击开始" : "你是队员，请等待房主开始游戏"})</p>
-                                
-                                <div className="grid grid-cols-2 gap-4 mb-8">
-                                    {[0, 1, 2, 3].map(i => {
-                                        const p = (gameState.players || [])[i];
-                                        return (
-                                            <div key={i} className={`p-4 border-4 rounded-xl text-2xl font-bold ${p ? 'bg-orange-100 border-orange-500 text-stone-800' : 'bg-stone-200 border-stone-400 text-stone-400 border-dashed'}`}>
-                                                {p ? (p.uuid === myUuid ? `${p.name} (我)` : p.name) : "等待加入..."}
-                                                {p && p.isAI && <i className="fas fa-robot ml-2 text-stone-500"></i>}
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-
-                                <div className="btn-group">
-                                    {isHost && (gameState.players || []).length < 4 && <button onClick={addAI} className="action-btn">添加 AI</button>}
-                                    {isHost ? (
-                                        <button onClick={startMultiGame} className={`action-btn ${(gameState.players || []).length === 4 ? 'action-btn-primary' : 'opacity-50 cursor-not-allowed'}`}>潜入虎穴</button>
-                                    ) : (
-                                        <div className="text-2xl text-amber-800 font-bold animate-pulse">等待房主发车...</div>
+                                        </div>
                                     )}
                                 </div>
-                                <button onClick={returnToCamp} className="mt-8 text-xl text-stone-500 underline font-bold">离开房间</button>
                             </div>
+                        )}
+                    </div>
+                );
+            }
+
+            return (
+                <div className="game-board">
+                    <div className="top-bar">
+                        <div className="status-badge">
+                            <i className="fas fa-hourglass-half text-orange-500"></i>
+                            <span className={timer <= 3 ? "text-red-600 animate-pulse font-black" : ""}>{timer}s</span>
                         </div>
-                    )}
+                        <div className="status-badge">第 {round} 回合</div>
+                    </div>
 
-                    {(view === 'PLAY' || view === 'PLAYING' || view === 'END') && (
-                        <React.Fragment>
-                            {(() => {
-                                const activePlayers = gameMode === 'MULTI' ? (gameState?.players || []) : players;
-                                const activePool = gameMode === 'MULTI' ? (gameState?.pool || []) : pool;
-                                const activeTimer = gameMode === 'MULTI' ? (gameState?.timer || 9) : timer;
-                                const activeRound = gameMode === 'MULTI' ? (gameState?.round || 1) : round;
-                                const activeEndReason = gameMode === 'MULTI' ? (gameState?.endReason || "") : endReason;
-                                
-                                const myPlayerObj = gameMode === 'MULTI' ? activePlayers.find(p => p.uuid === myUuid) : activePlayers[0];
-                                const hasIPicked = myPlayerObj ? myPlayerObj.hasPicked : false;
-
-                                if (!activePool || activePool.length === 0 || !activePlayers || activePlayers.length === 0) {
-                                    return (
-                                        <div className="text-white mt-20 flex flex-col items-center max-w-lg mx-auto text-center">
-                                            <i className="fas fa-satellite-dish fa-pulse text-orange-500 text-6xl mb-6"></i>
-                                            <div className="text-4xl font-bold font-sans tracking-widest mb-4">正在同步数据频道...</div>
-                                        </div>
-                                    );
-                                }
-
-                                return (
-                                    <div className="game-board">
-                                        <div className="top-bar">
-                                            <div className="status-badge"><i className="fas fa-hourglass-half text-orange-500"></i><span className={activeTimer <= 3 ? "text-red-600 animate-pulse font-black" : ""}>{activeTimer}s</span></div>
-                                            <div className="status-badge">第 {activeRound} 回合</div>
-                                        </div>
-
-                                        <div className="card-stage">
-                                            {activePool.map((it, idx) => {
-                                                const isLocked = it.takenBy !== -1 || hasIPicked;
-                                                const picker = it.takenBy !== -1 ? activePlayers.find(p => p.id === it.takenBy) : null;
-                                                const isMyItem = gameMode === 'SINGLE' ? it.takenBy === 0 : (picker && picker.uuid === myUuid);
-                                                
-                                                return (
-                                                    <div key={it.uid || idx} 
-                                                         onClick={() => !isLocked && (gameMode === 'SINGLE' ? executePickSingle(0, idx) : executePickMulti(idx))}
-                                                         className={`treasure-card ${it.takenBy !== -1 ? 'locked' : ''}`}>
-                                                        <div className="card-grid">
-                                                            <div className="stat-cell"><i className="fas fa-eye text-orange-500 text-sm"></i>{it.v}</div>
-                                                            <div className="stat-cell"><i className="fas fa-weight-hanging text-stone-500 text-sm"></i>{it.w}</div>
-                                                            <div className="stat-cell"><i className="fas fa-paw text-orange-700 text-sm"></i>{it.t}</div>
-                                                            <div className="stat-cell"><i className="fas fa-droplet text-red-600 text-sm"></i>{it.f}</div>
-                                                        </div>
-                                                        <div className="card-art">
-                                                            <i className={`fas ${it.icon}`} style={{ color: it.color }}></i>
-                                                            {picker && (
-                                                                <div className="stamp" style={{ background: isMyItem ? '#e11d48' : '#2563eb' }}>
-                                                                    {isMyItem ? '我的' : picker.name}
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                        <div className="card-name">{it.name}</div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-
-                                        <div className="bottom-scroll">
-                                            <div className="roller" style={{left: '-17px'}}></div><div className="roller" style={{right: '-17px'}}></div>
-                                            <table>
-                                                <thead>
-                                                    <tr>
-                                                        <th className="text-left pl-4">探险家姓名</th>
-                                                        <th><i className="fas fa-eye mr-1 text-orange-500"></i>价值</th>
-                                                        <th><i className="fas fa-weight-hanging mr-1 text-stone-500"></i>重量</th>
-                                                        <th><i className="fas fa-paw mr-1 text-orange-700"></i>虎气</th>
-                                                        <th><i className="fas fa-droplet mr-1 text-red-600"></i>腥味</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {activePlayers.map(p => {
-                                                        const isDanger = p.stats.f > p.stats.t && view !== 'END';
-                                                        const isMe = gameMode === 'SINGLE' ? p.id === 0 : p.uuid === myUuid;
-                                                        return (
-                                                            <tr key={p.id} className={`${isMe ? 'row-me' : ''} ${!p.alive && view === 'END' ? 'row-dead' : ''}`}>
-                                                                <td className="text-left pl-4">{p.name} {isMe && gameMode === 'MULTI' ? "(我)" : ""} {!p.alive && view === 'END' && '💀'}</td>
-                                                                <td>{p.stats.v}</td><td>{p.stats.w}</td><td className="text-orange-800">{p.stats.t}</td>
-                                                                <td className={isDanger ? 'danger-text font-black text-2xl' : 'text-red-900'}>{p.stats.f}</td>
-                                                            </tr>
-                                                        );
-                                                    })}
-                                                </tbody>
-                                            </table>
-                                        </div>
-
-                                        {view === 'END' && (
-                                            <div className="modal-overlay">
-                                                <div className="modal-box" style={{borderWidth: '8px', borderColor: '#78350f'}}>
-                                                    <h2 className="text-5xl mb-6 text-orange-900 title-font">{activeEndReason}</h2>
-                                                    <div className="space-y-3 mb-8">
-                                                        {[...activePlayers].sort((a,b) => b.stats.v - a.stats.v).map(p => {
-                                                            const isMe = gameMode === 'SINGLE' ? p.id === 0 : p.uuid === myUuid;
-                                                            return (
-                                                                <div key={p.id} className={`flex justify-between items-center p-4 border-4 rounded-xl ${p.alive ? 'bg-orange-100 border-orange-500' : 'bg-gray-300 border-gray-500'}`}>
-                                                                    <div className="text-left">
-                                                                        <div className="text-2xl font-black text-stone-800">
-                                                                            {p.name} {isMe && gameMode === 'MULTI' ? "(我)" : ""}
-                                                                            {p.alive && p.stats.v === Math.max(...activePlayers.filter(x=>x.alive).map(x=>x.stats.v)) && <i className="fas fa-crown text-yellow-500 ml-2"></i>}
-                                                                        </div>
-                                                                        <div className="text-base font-bold opacity-75">{p.alive ? "逃出生天！" : p.reason}</div>
-                                                                    </div>
-                                                                    <div className="text-4xl font-black text-stone-800">{p.alive ? p.stats.v : "---"}</div>
-                                                                </div>
-                                                            );
-                                                        })}
-                                                    </div>
-                                                    <button onClick={returnToCamp} className="action-btn action-btn-primary">返回营地</button>
-                                                </div>
+                    <div className="card-stage">
+                        {pool.map((it, idx) => {
+                            const isLocked = it.takenBy !== null || myHasPicked;
+                            return (
+                                <div key={it.uid} 
+                                     onClick={() => !isLocked && executePick(idx)}
+                                     className={`treasure-card ${it.takenBy !== null ? 'locked' : ''}`}>
+                                    
+                                    <div className="card-grid">
+                                        <div className="stat-cell"><i className="fas fa-eye text-orange-500 text-sm"></i>{it.v}</div>
+                                        <div className="stat-cell"><i className="fas fa-weight-hanging text-stone-500 text-sm"></i>{it.w}</div>
+                                        <div className="stat-cell"><i className="fas fa-paw text-orange-700 text-sm"></i>{it.t}</div>
+                                        <div className="stat-cell"><i className="fas fa-droplet text-red-600 text-sm"></i>{it.f}</div>
+                                    </div>
+                                    
+                                    <div className="card-art">
+                                        <i className={`fas ${it.icon}`} style={{ color: it.color }}></i>
+                                        {it.takenBy !== null && (
+                                            <div className="stamp" style={{ background: it.takenBy === myId ? '#e11d48' : '#2563eb' }}>
+                                                {it.takenBy === myId ? '我的选择' : '被抢走'}
                                             </div>
                                         )}
                                     </div>
-                                );
-                            })()}
-                        </React.Fragment>
+                                    
+                                    <div className="card-name">{it.name}</div>
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                    <div className="bottom-scroll">
+                        <div className="roller" style={{left: '-17px'}}></div>
+                        <div className="roller" style={{right: '-17px'}}></div>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th className="text-left pl-4">探险家姓名</th>
+                                    <th><i className="fas fa-eye mr-1 text-orange-500"></i>价值</th>
+                                    <th><i className="fas fa-weight-hanging mr-1 text-stone-500"></i>重量</th>
+                                    <th><i className="fas fa-paw mr-1 text-orange-700"></i>虎气</th>
+                                    <th><i className="fas fa-droplet mr-1 text-red-600"></i>腥味</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {players.map(p => {
+                                    const isDanger = p.stats.f > p.stats.t && view !== 'END';
+                                    return (
+                                        <tr key={p.id} className={`${p.id === myId ? 'row-me' : ''} ${!p.alive && view === 'END' ? 'row-dead' : ''}`}>
+                                            <td className="text-left pl-4">{p.name} {!p.alive && view === 'END' && '💀'}</td>
+                                            <td>{p.stats.v}</td>
+                                            <td>{p.stats.w}</td>
+                                            <td className="text-orange-800">{p.stats.t}</td>
+                                            <td className={isDanger ? 'danger-text font-black text-2xl' : 'text-red-900'}>{p.stats.f}</td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {view === 'END' && (
+                        <div className="modal-overlay">
+                            <div className="modal-box" style={{borderWidth: '8px', borderColor: '#78350f'}}>
+                                <h2 className="text-5xl mb-6 text-orange-900 title-font">{endReason}</h2>
+                                <div className="space-y-3 mb-8">
+                                    {players.sort((a,b) => b.stats.v - a.stats.v).map(p => (
+                                        <div key={p.id} className={`flex justify-between items-center p-4 border-4 rounded-xl ${p.alive ? 'bg-orange-100 border-orange-500' : 'bg-gray-300 border-gray-500'}`}>
+                                            <div className="text-left">
+                                                <div className="text-2xl font-black text-stone-800">
+                                                    {p.name} {p.id === myId ? " (你)" : ""}
+                                                    {p.alive && p.stats.v === Math.max(...players.filter(x=>x.alive).map(x=>x.stats.v)) && <i className="fas fa-crown text-yellow-500 ml-2"></i>}
+                                                </div>
+                                                <div className="text-base font-bold opacity-75">{p.alive ? "逃出生天！" : p.reason}</div>
+                                            </div>
+                                            <div className="text-4xl font-black text-stone-800">{p.alive ? p.stats.v : "---"}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                                <button onClick={() => {
+                                    if (ws && isConnected) {
+                                        ws.send(JSON.stringify({ type: "restart" }));
+                                    } else {
+                                        setView('START');
+                                    }
+                                }} className="action-btn action-btn-primary">返回营地</button>
+                            </div>
+                        </div>
                     )}
-                </>
+                </div>
             );
         };
 
