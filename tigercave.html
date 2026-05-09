@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>勇探虎穴 - 终极修复版 (单机+联机)</title>
+    <title>勇探虎穴 - 终极修复版 (Firestore 引擎)</title>
     <!-- Tailwind & React -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
@@ -11,9 +11,7 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     
-    <!-- Firebase SDK (v8) -->
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <!-- 移除了旧版的 v8 SDK，现在我们在下方使用 Module 直接引入最新版 Firestore -->
 
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=ZCOOL+KuaiLe&display=swap');
@@ -83,7 +81,7 @@
         .danger-text { color: var(--blood-red); animation: blink 1s infinite alternate; }
 
         .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; z-index: 100; backdrop-filter: blur(5px); }
-        .modal-box { background: var(--paper-bg); border: 10px solid var(--wood-dark); border-radius: 30px; padding: 40px; width: 90%; max-width: 800px; max-height: 90vh; overflow-y: auto; text-align: center; position: relative; }
+        .modal-box { background: var(--paper-bg); border: 10px solid var(--wood-dark); border-radius: 30px; padding: 40px; width: 90%; max-width: 800px; max-height: 90vh; overflow-y: auto; text-align: center; position: relative; box-shadow: 0 20px 50px rgba(0,0,0,0.8); }
         .close-btn { position: absolute; top: 15px; right: 20px; font-size: 3rem; color: #78350f; cursor: pointer; transition: transform 0.2s; }
         .close-btn:hover { transform: scale(1.1) rotate(90deg); color: #dc2626; }
         .gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 15px; margin-top: 20px; }
@@ -93,18 +91,32 @@
 <body>
     <div id="root"></div>
 
-    <script type="text/babel">
-        // 1. 初始化 Firebase
-        const firebaseConfig = {
-            apiKey: "AIzaSyB8yhiOueicbUtz676uFpWPRIdGJibZFZQ",
-            authDomain: "mygame-275e8.firebaseapp.com",
-            projectId: "mygame-275e8",
-            storageBucket: "mygame-275e8.firebasestorage.app",
-            messagingSenderId: "557892423493",
-            appId: "1:557892423493:web:5fb30fbbbc52307a99382c"
-        };
-        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
-        const db = firebase.database();
+    <!-- 关键改动：使用 type="text/babel" 并搭配 data-type="module" 以支持 ES Modules (Firestore) -->
+    <script type="text/babel" data-type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot, runTransaction, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // 1. 初始化 Firebase Firestore 
+        let firebaseConfig;
+        try {
+            // 优先使用当前平台的内置云环境，如果脱离平台则使用你提供的配置
+            firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+                apiKey: "AIzaSyB8yhiOueicbUtz676uFpWPRIdGJibZFZQ",
+                authDomain: "mygame-275e8.firebaseapp.com",
+                projectId: "mygame-275e8",
+                storageBucket: "mygame-275e8.firebasestorage.app",
+                messagingSenderId: "557892423493",
+                appId: "1:557892423493:web:5fb30fbbbc52307a99382c"
+            };
+        } catch(e) {
+            console.warn("解析内置配置失败");
+        }
+        
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const APP_ID = typeof __app_id !== 'undefined' ? __app_id : "tigercave"; 
 
         // 2. 物品数据字典
         const ITEMS = [
@@ -127,7 +139,33 @@
             const [view, setView] = useState('START'); 
             const [modal, setModal] = useState(null); 
             const [gameMode, setGameMode] = useState(null);
+            
+            const [sysMsg, setSysMsg] = useState("");
+            const showAlert = (msg) => setSysMsg(msg);
+            
             const aiTimers = useRef([]);
+
+            // ==== Firebase Auth (联机必填前提) ====
+            const [user, setUser] = useState(null);
+            useEffect(() => {
+                const initAuth = async () => {
+                    try { 
+                        // 优先尝试平台签发的安全令牌，失败则降级为匿名登录
+                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                            await signInWithCustomToken(auth, __initial_auth_token);
+                        } else {
+                            await signInAnonymously(auth); 
+                        }
+                    } catch (error) { 
+                        console.error("联机服务认证失败，API Key 无效:", error); 
+                        showAlert("联机服务器连接失败（API Key 无效）。\n不用担心，您仍可正常游玩【单机挑战】模式！");
+                    }
+                };
+                initAuth();
+                const unsubscribe = onAuthStateChanged(auth, setUser);
+                return () => unsubscribe();
+            }, []);
+
 
             // ================= 【单机模式】 =================
             const [round, setRound] = useState(1);
@@ -209,7 +247,7 @@
             }, [round, view, gameMode, handleRoundEndSingle]);
 
 
-            // ================= 【联机模式】状态与逻辑 =================
+            // ================= 【联机模式】Firestore 架构 =================
             const [myUuid] = useState(() => Math.random().toString(36).substring(2, 10));
             const [playerName, setPlayerName] = useState("");
             const [joinCodeInput, setJoinCodeInput] = useState("");
@@ -218,503 +256,524 @@
             const [isHost, setIsHost] = useState(false);
             const [gameState, setGameState] = useState(null);
 
-            const gotoMultiSetup = () => { setGameMode('MULTI'); setModal(null); setView('MULTI_SETUP'); };
+            // 统一 Firestore 引用路径获取方法
+            const getRoomRef = (rid) => doc(db, 'artifacts', APP_ID, 'public', 'data', 'rooms', rid);
+
+            const gotoMultiSetup = () => { 
+                if (!user) return showAlert("正在连接服务器进行身份认证，请稍等几秒再点击...");
+                setGameMode('MULTI'); setModal(null); setView('MULTI_SETUP'); 
+            };
 
             const createRoom = async () => {
+                if (!user) return showAlert("尚未连接到服务器...");
                 const name = playerName.trim() || "房主"; const newRoomId = Math.floor(1000 + Math.random() * 9000).toString();
-                setRoomId(newRoomId); setIsHost(true); setPlayerId(0);
+                showAlert("正在建立新房间，请稍候...");
                 try {
-                    await db.ref(`tigercave_rooms/${newRoomId}`).set({
+                    const roomRef = getRoomRef(newRoomId);
+                    await setDoc(roomRef, {
                         status: 'WAITING', round: 1, timer: 9, endReason: "",
                         players: [{ id: 0, uuid: myUuid, name: name, isAI: false, stats: { v: 0, w: 0, t: 0, f: 0 }, alive: true, reason: "", hasPicked: false }],
                         pool: []
                     });
-                    console.log("房间创建成功:", newRoomId);
+                    console.log("Firestore: 房间创建成功", newRoomId);
+                    setSysMsg("");
+                    setRoomId(newRoomId); setIsHost(true); setPlayerId(0);
                     setView('LOBBY');
                 } catch(e) {
                     console.error("创建房间失败:", e);
-                    alert("网络错误，创建失败！");
+                    showAlert("创建失败：" + e.message);
                 }
             };
 
-            // 【重构核心】全面加入 async/await 和 Try-Catch，不再允许错误被静默吞没！
             const joinRoomAction = async () => {
+                if (!user) return showAlert("尚未连接到服务器...");
                 const code = joinCodeInput.trim(); 
-                if (!code) return alert("请输入房间号");
+                if (!code) return showAlert("请输入要加入的房间号！");
                 const name = playerName.trim() || `玩家_${myUuid.substring(0,3)}`;
                 
-                console.log("【动作】开始尝试加入房间:", code);
+                showAlert(`正在通过 Firestore 连接房间 [${code}]...`);
                 try {
-                    const roomRef = db.ref(`tigercave_rooms/${code}`);
-                    
-                    // 1. 获取最新快照以校验合法性
-                    const snap = await roomRef.once('value');
-                    if (!snap.exists()) {
-                        console.warn("房间不存在");
-                        return alert("此房间号不存在！");
-                    }
-                    
-                    const data = snap.val();
-                    if (data.status !== 'WAITING') {
-                        console.warn("房间状态不是 WAITING", data.status);
-                        return alert("对局已开始或已结束，无法加入！");
-                    }
-                    
-                    const pArr = Array.isArray(data.players) ? data.players : Object.values(data.players || {});
-                    if (pArr.length >= 4) {
-                        console.warn("房间人数已满", pArr.length);
-                        return alert("房间人数已满（最多4人）！");
-                    }
-
-                    // 2. 发起更新事务
-                    roomRef.transaction(curr => {
-                        console.log("【事务运算中】", curr);
-                        // 当本地缓存还未建立时，Firebase会以 null 传入。此时我们返回 curr 让其从服务端拉取并重试
-                        if (curr === null) return curr; 
-                        if (curr.status !== 'WAITING') return undefined; // 返回 undefined 会安全中止事务
+                    const roomRef = getRoomRef(code);
+                    await runTransaction(db, async (transaction) => {
+                        const roomDoc = await transaction.get(roomRef);
+                        if (!roomDoc.exists()) throw new Error("NOT_FOUND");
                         
-                        const cPlayers = Array.isArray(curr.players) ? curr.players : Object.values(curr.players || {});
-                        if(cPlayers.length >= 4) return undefined; 
+                        const data = roomDoc.data();
+                        if (data.status !== 'WAITING') throw new Error("NOT_WAITING");
                         
-                        // 防止网络波动导致的重复加入
-                        if (cPlayers.find(p => p.uuid === myUuid)) return curr;
+                        const cPlayers = data.players || [];
+                        if (cPlayers.length >= 4) throw new Error("FULL");
                         
-                        cPlayers.push({ id: cPlayers.length, uuid: myUuid, name: name, isAI: false, stats: { v: 0, w: 0, t: 0, f: 0 }, alive: true, reason: "", hasPicked: false });
-                        curr.players = cPlayers;
-                        return curr;
-                    }, (err, committed, finalSnap) => {
-                        if (err) {
-                            console.error("加入事务异常:", err);
-                            alert("加入发生异常: " + err.message);
-                        } else if (!committed) {
-                            console.warn("加入被拒绝或中止，最终状态:", finalSnap?.val());
-                            alert("加入失败，可能房间刚好满员或已经发车！");
-                        } else {
-                            console.log("【事务成功】正式进入房间");
-                            setRoomId(code);
-                            setIsHost(false);
-                            setView('LOBBY');
+                        // 防止重复加入
+                        if (!cPlayers.find(p => p.uuid === myUuid)) {
+                            cPlayers.push({ id: cPlayers.length, uuid: myUuid, name: name, isAI: false, stats: { v: 0, w: 0, t: 0, f: 0 }, alive: true, reason: "", hasPicked: false });
+                            transaction.update(roomRef, { players: cPlayers });
                         }
                     });
 
+                    console.log("Firestore: 成功加入房间");
+                    setSysMsg(""); 
+                    setRoomId(code); setIsHost(false); setView('LOBBY');
+
                 } catch (error) {
-                    console.error("加入流程发生网络故障:", error);
-                    alert("网络波动，读取房间数据失败！");
+                    console.error("加入流程故障:", error);
+                    if (error.message === "NOT_FOUND") showAlert(`房间号 [${code}] 不存在！`);
+                    else if (error.message === "NOT_WAITING") showAlert("该房间已经发车，无法中途加入。");
+                    else if (error.message === "FULL") showAlert("该房间人数已满（4人）。");
+                    else showAlert("连接失败: " + error.message);
                 }
             };
 
-            const addAI = () => {
-                if(!isHost) return;
-                db.ref(`tigercave_rooms/${roomId}`).transaction(curr => {
-                    if(!curr) return curr;
-                    const cPlayers = Array.isArray(curr.players) ? curr.players : Object.values(curr.players || {});
-                    if(cPlayers.length >= 4) return undefined;
-                    
-                    const aiNames = ["贪婪者 A", "谨慎者 B", "博弈者 C"]; const nextId = cPlayers.length;
-                    cPlayers.push({ id: nextId, uuid: `AI_${Math.random()}`, name: aiNames[nextId-1] || `AI_${nextId}`, isAI: true, stats: { v: 0, w: 0, t: 0, f: 0 }, alive: true, reason: "", hasPicked: false });
-                    curr.players = cPlayers;
-                    return curr;
-                });
+            const addAI = async () => {
+                if(!isHost || !user) return;
+                try {
+                    await runTransaction(db, async (transaction) => {
+                        const roomRef = getRoomRef(roomId);
+                        const roomDoc = await transaction.get(roomRef);
+                        if (!roomDoc.exists()) return;
+                        
+                        const data = roomDoc.data();
+                        const cPlayers = data.players || [];
+                        if(cPlayers.length >= 4) return;
+                        
+                        const aiNames = ["贪婪者 A", "谨慎者 B", "博弈者 C"]; const nextId = cPlayers.length;
+                        cPlayers.push({ id: nextId, uuid: `AI_${Math.random()}`, name: aiNames[nextId-1] || `AI_${nextId}`, isAI: true, stats: { v: 0, w: 0, t: 0, f: 0 }, alive: true, reason: "", hasPicked: false });
+                        transaction.update(roomRef, { players: cPlayers });
+                    });
+                } catch(e) { console.error("Add AI Error:", e); }
             };
 
-            const startMultiGame = () => {
-                const currentPlayers = Array.isArray(gameState?.players) ? gameState.players : Object.values(gameState?.players || {});
-                if (currentPlayers.length < 4) return alert("请凑齐4人（或添加AI）再开始！");
+            const startMultiGame = async () => {
+                if(!isHost || !user) return;
+                const currentPlayers = gameState?.players || [];
+                if (currentPlayers.length < 4) return showAlert("必须凑齐 4 人（或添加 AI）才能开始！");
                 
-                db.ref(`tigercave_rooms/${roomId}`).transaction(curr => {
-                    if(!curr) return curr; 
-                    curr.status = 'PLAY'; curr.round = 1; curr.timer = 9; curr.endReason = "";
-                    curr.pool = [...ITEMS].sort(() => 0.5 - Math.random()).slice(0, 5).map(item => ({...item, uid: Math.random(), takenBy: -1}));
-                    
-                    const cPlayers = Array.isArray(curr.players) ? curr.players : Object.values(curr.players || {});
-                    cPlayers.forEach(p => { p.stats = { v: 0, w: 0, t: 0, f: 0 }; p.alive = true; p.reason = ""; p.hasPicked = false; });
-                    curr.players = cPlayers;
-                    return curr;
-                });
+                try {
+                    await runTransaction(db, async (transaction) => {
+                        const roomRef = getRoomRef(roomId);
+                        const roomDoc = await transaction.get(roomRef);
+                        if (!roomDoc.exists()) return;
+                        
+                        const data = roomDoc.data();
+                        const newPool = [...ITEMS].sort(() => 0.5 - Math.random()).slice(0, 5).map(item => ({...item, uid: Math.random(), takenBy: -1}));
+                        const cPlayers = data.players || [];
+                        cPlayers.forEach(p => { p.stats = { v: 0, w: 0, t: 0, f: 0 }; p.alive = true; p.reason = ""; p.hasPicked = false; });
+                        
+                        transaction.update(roomRef, { status: 'PLAY', round: 1, timer: 9, endReason: "", pool: newPool, players: cPlayers });
+                    });
+                } catch(e) { console.error("Start Game Error:", e); }
             };
 
-            const executePickMulti = (itemIdx) => {
-                if (playerId === -1) return;
-                db.ref(`tigercave_rooms/${roomId}`).transaction(data => {
-                    if (!data || (data.status !== 'PLAY' && data.status !== 'PLAYING')) return data;
-                    const cPlayers = Array.isArray(data.players) ? data.players : Object.values(data.players || {});
-                    const cPool = Array.isArray(data.pool) ? data.pool : Object.values(data.pool || {});
+            const executePickMulti = async (itemIdx) => {
+                if (playerId === -1 || !user) return;
+                try {
+                    await runTransaction(db, async (transaction) => {
+                        const roomRef = getRoomRef(roomId);
+                        const roomDoc = await transaction.get(roomRef);
+                        if (!roomDoc.exists()) return;
+                        
+                        const data = roomDoc.data();
+                        if (data.status !== 'PLAY' && data.status !== 'PLAYING') return;
 
-                    if (!cPlayers[playerId] || cPlayers[playerId].hasPicked || !cPool[itemIdx] || cPool[itemIdx].takenBy !== -1) return data;
-                    
-                    cPool[itemIdx].takenBy = playerId; 
-                    const item = cPool[itemIdx];
-                    cPlayers[playerId].stats.v += item.v; cPlayers[playerId].stats.w += item.w;
-                    cPlayers[playerId].stats.t += item.t; cPlayers[playerId].stats.f += item.f;
-                    cPlayers[playerId].hasPicked = true; 
-                    data.pool = cPool; data.players = cPlayers;
-                    return data;
-                });
+                        const cPlayers = data.players || [];
+                        const cPool = data.pool || [];
+
+                        if (!cPlayers[playerId] || cPlayers[playerId].hasPicked || !cPool[itemIdx] || cPool[itemIdx].takenBy !== -1) return;
+                        
+                        cPool[itemIdx].takenBy = playerId; 
+                        const item = cPool[itemIdx];
+                        cPlayers[playerId].stats.v += item.v; cPlayers[playerId].stats.w += item.w;
+                        cPlayers[playerId].stats.t += item.t; cPlayers[playerId].stats.f += item.f;
+                        cPlayers[playerId].hasPicked = true; 
+                        
+                        transaction.update(roomRef, { pool: cPool, players: cPlayers });
+                    });
+                } catch(e) { console.error("Pick Error:", e); }
             };
 
-            // 联机数据同步监听
+            // 联机数据同步监听 (Firestore onSnapshot)
             useEffect(() => {
-                if (!roomId || gameMode !== 'MULTI') return;
-                console.log("【连接监听器】开启房间监听:", roomId);
-                const ref = db.ref(`tigercave_rooms/${roomId}`);
-                const listener = ref.on('value', snap => {
-                    const data = snap.val();
-                    if (data) {
+                if (!roomId || gameMode !== 'MULTI' || !user) return;
+                const roomRef = getRoomRef(roomId);
+                const unsubscribe = onSnapshot(roomRef, (docSnap) => {
+                    if (docSnap.exists()) {
+                        const data = docSnap.data();
                         setGameState(data); 
                         setView(data.status === 'WAITING' ? 'LOBBY' : data.status);
-                        const cPlayers = Array.isArray(data.players) ? data.players : Object.values(data.players || {});
+                        const cPlayers = data.players || [];
                         const myIdx = cPlayers.findIndex(p => p.uuid === myUuid);
                         if(myIdx !== -1) setPlayerId(myIdx);
                     } else {
-                        setRoomId(""); setGameState(null); setView('START'); alert("房间已被解散或断开连接。");
+                        setRoomId(""); setGameState(null); setView('START'); showAlert("此房间已被解散或关闭。");
                     }
+                }, (error) => {
+                    console.error("Firestore Listen Error:", error);
                 });
-                return () => {
-                    console.log("【断开监听器】");
-                    ref.off('value', listener);
-                };
-            }, [roomId, myUuid, gameMode]);
+                return () => unsubscribe();
+            }, [roomId, myUuid, gameMode, user]);
 
-            // 联机计时器 (房主独占)
+            // 联机计时器 (房主独占，使用 Firestore Transaction 安全更新)
             useEffect(() => {
-                if (!isHost || (view !== 'PLAY' && view !== 'PLAYING') || gameMode !== 'MULTI' || !roomId) return;
-                const interval = setInterval(() => {
-                    db.ref(`tigercave_rooms/${roomId}`).transaction(data => {
-                        if (!data || (data.status !== 'PLAY' && data.status !== 'PLAYING')) return data;
-                        if (data.timer > 1) { data.timer -= 1; } 
-                        else {
-                            let isEnd = false; let msg = "";
-                            if (data.round >= 10) { isEnd = true; msg = "十回合届满，虎穴崩塌！"; }
-                            else if (data.round >= 6 && Math.random() < [0,0,0,0,0, 0.1, 0.25, 0.45, 0.7][data.round]) { isEnd = true; msg = `突发状况！第 ${data.round} 回合发生洞穴陷落！`; }
+                if (!isHost || (view !== 'PLAY' && view !== 'PLAYING') || gameMode !== 'MULTI' || !roomId || !user) return;
+                const interval = setInterval(async () => {
+                    try {
+                        await runTransaction(db, async (transaction) => {
+                            const roomRef = getRoomRef(roomId);
+                            const roomDoc = await transaction.get(roomRef);
+                            if (!roomDoc.exists()) return;
+                            const data = roomDoc.data();
+                            if (data.status !== 'PLAY' && data.status !== 'PLAYING') return;
 
-                            const cPlayers = Array.isArray(data.players) ? data.players : Object.values(data.players || {});
-                            if (isEnd) {
-                                data.status = 'END'; data.endReason = msg;
-                                const maxW = Math.max(...cPlayers.map(p => p.stats.w)); 
-                                const maxT = Math.max(...cPlayers.map(p => p.stats.t));
-                                cPlayers.forEach(p => {
-                                    p.alive = true; p.reason = "逃出生天！";
-                                    if (p.stats.f > p.stats.t) { p.alive = false; p.reason = "腥味盖过虎气，被群狼分食"; }
-                                    else if (p.stats.w === maxW && maxW > 0) { p.alive = false; p.reason = "全场负重最高，被落石掩埋"; }
-                                    else if (p.stats.t === maxT && maxT > 0) { p.alive = false; p.reason = "全场虎气最盛，激怒了虎王"; }
-                                });
+                            if (data.timer > 1) { 
+                                transaction.update(roomRef, { timer: data.timer - 1 });
                             } else {
-                                data.round += 1; data.timer = 9;
-                                data.pool = [...ITEMS].sort(() => 0.5 - Math.random()).slice(0, 5).map(item => ({...item, uid: Math.random(), takenBy: -1}));
-                                cPlayers.forEach(p => p.hasPicked = false);
+                                let isEnd = false; let msg = "";
+                                if (data.round >= 10) { isEnd = true; msg = "十回合届满，虎穴崩塌！"; }
+                                else if (data.round >= 6 && Math.random() < [0,0,0,0,0, 0.1, 0.25, 0.45, 0.7][data.round]) { isEnd = true; msg = `突发状况！第 ${data.round} 回合发生洞穴陷落！`; }
+
+                                const cPlayers = data.players || [];
+                                if (isEnd) {
+                                    const maxW = Math.max(...cPlayers.map(p => p.stats.w)); 
+                                    const maxT = Math.max(...cPlayers.map(p => p.stats.t));
+                                    cPlayers.forEach(p => {
+                                        p.alive = true; p.reason = "逃出生天！";
+                                        if (p.stats.f > p.stats.t) { p.alive = false; p.reason = "腥味盖过虎气，被群狼分食"; }
+                                        else if (p.stats.w === maxW && maxW > 0) { p.alive = false; p.reason = "全场负重最高，被落石掩埋"; }
+                                        else if (p.stats.t === maxT && maxT > 0) { p.alive = false; p.reason = "全场虎气最盛，激怒了虎王"; }
+                                    });
+                                    transaction.update(roomRef, { status: 'END', endReason: msg, players: cPlayers });
+                                } else {
+                                    const newPool = [...ITEMS].sort(() => 0.5 - Math.random()).slice(0, 5).map(item => ({...item, uid: Math.random(), takenBy: -1}));
+                                    cPlayers.forEach(p => p.hasPicked = false);
+                                    transaction.update(roomRef, { round: data.round + 1, timer: 9, pool: newPool, players: cPlayers });
+                                }
                             }
-                            data.players = cPlayers;
-                        }
-                        return data;
-                    });
+                        });
+                    } catch(e) { console.error("Timer Error:", e); }
                 }, 1000);
                 return () => clearInterval(interval);
-            }, [isHost, view, roomId, gameMode]);
+            }, [isHost, view, roomId, gameMode, user]);
 
             // 联机 AI 托管 (房主独占)
             useEffect(() => {
-                if (!isHost || (view !== 'PLAY' && view !== 'PLAYING') || gameMode !== 'MULTI' || !gameState || !roomId) return;
+                if (!isHost || (view !== 'PLAY' && view !== 'PLAYING') || gameMode !== 'MULTI' || !gameState || !roomId || !user) return;
                 aiTimers.current.forEach(clearTimeout); aiTimers.current = [];
-                const currentPlayers = Array.isArray(gameState.players) ? gameState.players : Object.values(gameState.players || {});
+                const currentPlayers = gameState.players || [];
                 
                 currentPlayers.forEach((p, idx) => {
                     if (p.isAI && !p.hasPicked) {
                         const delay = 1500 + Math.random() * 3000;
-                        const t = setTimeout(() => {
-                            db.ref(`tigercave_rooms/${roomId}`).transaction(data => {
-                                if (!data || (data.status !== 'PLAY' && data.status !== 'PLAYING')) return data;
-                                const cPlayers = Array.isArray(data.players) ? data.players : Object.values(data.players || {});
-                                const cPool = Array.isArray(data.pool) ? data.pool : Object.values(data.pool || {});
+                        const t = setTimeout(async () => {
+                            try {
+                                await runTransaction(db, async (transaction) => {
+                                    const roomRef = getRoomRef(roomId);
+                                    const roomDoc = await transaction.get(roomRef);
+                                    if (!roomDoc.exists()) return;
+                                    
+                                    const data = roomDoc.data();
+                                    if (data.status !== 'PLAY' && data.status !== 'PLAYING') return;
 
-                                if (!cPlayers[idx] || cPlayers[idx].hasPicked) return data;
-                                
-                                const avail = cPool.map((it, i) => it.takenBy === -1 ? i : -1).filter(i => i !== -1);
-                                if (avail.length > 0) {
-                                    const pickIdx = avail[Math.floor(Math.random() * avail.length)];
-                                    cPool[pickIdx].takenBy = idx; 
-                                    const item = cPool[pickIdx];
-                                    cPlayers[idx].stats.v += item.v; cPlayers[idx].stats.w += item.w;
-                                    cPlayers[idx].stats.t += item.t; cPlayers[idx].stats.f += item.f;
-                                    cPlayers[idx].hasPicked = true;
-                                    data.pool = cPool; data.players = cPlayers;
-                                }
-                                return data;
-                            });
+                                    const cPlayers = data.players || [];
+                                    const cPool = data.pool || [];
+
+                                    if (!cPlayers[idx] || cPlayers[idx].hasPicked) return;
+                                    
+                                    const avail = cPool.map((it, i) => it.takenBy === -1 ? i : -1).filter(i => i !== -1);
+                                    if (avail.length > 0) {
+                                        const pickIdx = avail[Math.floor(Math.random() * avail.length)];
+                                        cPool[pickIdx].takenBy = idx; 
+                                        const item = cPool[pickIdx];
+                                        cPlayers[idx].stats.v += item.v; cPlayers[idx].stats.w += item.w;
+                                        cPlayers[idx].stats.t += item.t; cPlayers[idx].stats.f += item.f;
+                                        cPlayers[idx].hasPicked = true;
+                                        transaction.update(roomRef, { pool: cPool, players: cPlayers });
+                                    }
+                                });
+                            } catch(e) { console.error("AI Error:", e); }
                         }, delay);
                         aiTimers.current.push(t);
                     }
                 });
                 return () => aiTimers.current.forEach(clearTimeout);
-            }, [isHost, view, roomId, gameState?.round, gameMode]); 
+            }, [isHost, view, roomId, gameState?.round, gameMode, user]); 
 
-            const returnToCamp = () => {
+            const returnToCamp = async () => {
                 if (gameMode === 'SINGLE') { setView('START'); } 
                 else {
-                    if(isHost) db.ref(`tigercave_rooms/${roomId}`).remove();
-                    else { setRoomId(""); setGameState(null); setView('START'); }
+                    if(isHost && user) {
+                        try { await deleteDoc(getRoomRef(roomId)); } catch(e){}
+                    }
+                    setRoomId(""); setGameState(null); setView('START'); 
                 }
             };
 
             // ================= 视图渲染 =================
-
-            if (view === 'START') {
-                return (
-                    <div className="home-screen">
-                        <div className="title-board"><h1 className="title-text">勇探虎穴</h1></div>
-                        <div className="notice-board">
-                            <p className="text-center text-3xl mb-6 font-bold text-amber-900 border-b-4 border-amber-900 pb-4">
-                                进入虎穴寻找无尽的宝藏吧！<br/>
-                                <span className="text-2xl text-red-600 mt-2 block">警告：贪婪拿得太多，最终会害了自己！</span>
-                            </p>
-                            <ul className="text-2xl space-y-5 font-bold text-stone-800 flex flex-col items-center">
-                                <li className="flex items-center bg-white/50 px-6 py-3 rounded-lg border-2 border-stone-300 w-full max-w-lg">
-                                    <i className="fas fa-weight-hanging text-stone-600 w-12 text-center text-3xl"></i>负重全场最高者：<strong className="text-red-600 text-3xl ml-auto">死！</strong>
-                                </li>
-                                <li className="flex items-center bg-white/50 px-6 py-3 rounded-lg border-2 border-stone-300 w-full max-w-lg">
-                                    <i className="fas fa-paw text-orange-600 w-12 text-center text-3xl"></i>虎气全场最盛者：<strong className="text-red-600 text-3xl ml-auto">死！</strong>
-                                </li>
-                                <li className="flex items-center bg-white/50 px-6 py-3 rounded-lg border-2 border-stone-300 w-full max-w-lg">
-                                    <i className="fas fa-droplet text-red-600 w-12 text-center text-3xl"></i>自身腥味多于虎气：<strong className="text-red-600 text-3xl ml-auto">死！</strong>
-                                </li>
-                            </ul>
-                        </div>
-                        <div className="btn-group">
-                            <button onClick={() => setModal('RULES')} className="action-btn">规则说明</button>
-                            <button onClick={() => setModal('MODE_SELECT')} className="action-btn action-btn-primary">潜入虎穴</button>
-                            <button onClick={() => setModal('ITEMS')} className="action-btn">物品图鉴</button>
-                        </div>
-
-                        {modal && (
-                            <div className="modal-overlay">
-                                <div className="modal-box">
-                                    <i className="fas fa-times-circle close-btn" onClick={() => setModal(null)}></i>
-                                    {modal === 'MODE_SELECT' && (
-                                        <div className="flex flex-col items-center gap-8 py-8">
-                                            <h2 className="title-font text-6xl text-amber-900 mb-4">选择探险模式</h2>
-                                            <button onClick={startSingleGame} className="action-btn w-3/4 py-6 text-3xl"><i className="fas fa-user mr-4"></i>单机挑战 (含AI)</button>
-                                            <button onClick={gotoMultiSetup} className="action-btn action-btn-primary w-3/4 py-6 text-3xl"><i className="fas fa-users mr-4"></i>多人联机 (好友组队)</button>
-                                        </div>
-                                    )}
-                                    {modal === 'RULES' && (
-                                        <div className="text-left">
-                                            <h2 className="title-font text-5xl text-center mb-6 text-amber-900">生存法则</h2>
-                                            <div className="text-xl space-y-4 font-bold text-stone-800">
-                                                <p>1. 探险分为 <span className="text-red-600">10个回合</span>，每回合展示 <span className="text-orange-600">5件宝物</span>，先抢先得！</p>
-                                                <p>2. 第6回合开始，虎穴随时可能坍塌提前结束探险。</p>
-                                                <p>3. 游戏结束时，所有人进行生死同步判定（符合以下任一条即死）：</p>
-                                                <ul className="list-disc pl-10 text-red-700 text-2xl space-y-2 mt-2">
-                                                    <li>你身上的【腥味】大于【虎威】。</li>
-                                                    <li>你的【总负重】是全场最高！</li>
-                                                    <li>你的【总虎气】是全场最高！</li>
-                                                </ul>
-                                                <p className="mt-6 text-center text-2xl text-orange-800 border-t-2 border-orange-800 pt-4">在所有幸存者中，<strong>【总价值】最高者获胜！</strong></p>
-                                            </div>
-                                        </div>
-                                    )}
-                                    {modal === 'ITEMS' && (
-                                        <div>
-                                            <h2 className="title-font text-5xl mb-6 text-amber-900">全物品密卷</h2>
-                                            <div className="gallery-grid">
-                                                {ITEMS.map(item => (
-                                                    <div key={item.id} className="gallery-item">
-                                                        <div className="text-4xl w-12 text-center" style={{color: item.color}}><i className={`fas ${item.icon}`}></i></div>
-                                                        <div className="flex-1">
-                                                            <div className="font-bold border-b-2 border-amber-900/20 mb-1 pb-1 text-stone-800">{item.name}</div>
-                                                            <div className="grid grid-cols-2 gap-1 text-xs font-bold">
-                                                                <div className="bg-orange-100 rounded px-1"><i className="fas fa-eye text-orange-500 w-4"></i> {item.v}</div>
-                                                                <div className="bg-stone-100 rounded px-1"><i className="fas fa-weight-hanging text-stone-500 w-4"></i> {item.w}</div>
-                                                                <div className="bg-orange-100 rounded px-1"><i className="fas fa-paw text-orange-700 w-4"></i> {item.t}</div>
-                                                                <div className="bg-red-100 rounded px-1"><i className="fas fa-droplet text-red-600 w-4"></i> {item.f}</div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                );
-            }
-
-            if (view === 'MULTI_SETUP') {
-                return (
-                    <div className="home-screen">
-                        <div className="title-board"><h1 className="title-text">联机大厅</h1></div>
-                        <div className="notice-board text-center">
-                            <div className="flex flex-col gap-6 items-center">
-                                <input className="input-field w-64" placeholder="你的探险家代号" value={playerName} onChange={e => setPlayerName(e.target.value)} maxLength="8"/>
-                                <div className="btn-group border-b-4 border-wood-light pb-6 w-full mt-4">
-                                    <button onClick={createRoom} className="action-btn action-btn-primary">建立新房间 (房主)</button>
-                                </div>
-                                <div className="flex items-center gap-4 mt-4">
-                                    <input className="input-field w-40" placeholder="输入4位房间号" value={joinCodeInput} onChange={e => setJoinCodeInput(e.target.value)} maxLength="4"/>
-                                    <button onClick={joinRoomAction} className="action-btn">加入好友房间</button>
-                                </div>
-                            </div>
-                            <button onClick={() => setView('START')} className="mt-10 text-xl text-stone-500 underline font-bold">返回主菜单</button>
-                        </div>
-                    </div>
-                );
-            }
-
-            const safeGameStatePlayers = Array.isArray(gameState?.players) ? gameState?.players : Object.values(gameState?.players || {});
             
-            if (view === 'LOBBY' && gameState) {
-                return (
-                    <div className="home-screen">
-                        <div className="title-board"><h1 className="title-text" style={{fontSize: '5rem'}}>队伍集结</h1></div>
-                        <div className="notice-board text-center">
-                            <h2 className="text-4xl text-amber-900 font-bold mb-4">房间号：<span className="text-red-600 tracking-widest">{roomId}</span></h2>
-                            <p className="text-xl text-stone-600 mb-8">({isHost ? "你是房主，准备就绪后点击开始" : "你是队员，请等待房主开始游戏"})</p>
-                            
-                            <div className="grid grid-cols-2 gap-4 mb-8">
-                                {[0, 1, 2, 3].map(i => {
-                                    const p = safeGameStatePlayers[i];
-                                    return (
-                                        <div key={i} className={`p-4 border-4 rounded-xl text-2xl font-bold ${p ? 'bg-orange-100 border-orange-500 text-stone-800' : 'bg-stone-200 border-stone-400 text-stone-400 border-dashed'}`}>
-                                            {p ? (p.uuid === myUuid ? `${p.name} (我)` : p.name) : "等待加入..."}
-                                            {p && p.isAI && <i className="fas fa-robot ml-2 text-stone-500"></i>}
-                                        </div>
-                                    );
-                                })}
-                            </div>
+            const isLoadingMsg = typeof sysMsg === 'string' && sysMsg.includes("请稍候");
 
-                            <div className="btn-group">
-                                {isHost && safeGameStatePlayers.length < 4 && <button onClick={addAI} className="action-btn">添加 AI</button>}
-                                {isHost ? (
-                                    <button onClick={startMultiGame} className={`action-btn ${safeGameStatePlayers.length === 4 ? 'action-btn-primary' : 'opacity-50 cursor-not-allowed'}`}>潜入虎穴</button>
-                                ) : (
-                                    <div className="text-2xl text-amber-800 font-bold animate-pulse">等待房主发车...</div>
+            return (
+                <>
+                    {/* ====== 自定义系统提示弹窗 ====== */}
+                    {sysMsg && (
+                        <div className="modal-overlay" style={{ zIndex: 9999 }}>
+                            <div className="modal-box" style={{ maxWidth: '450px', padding: '40px', border: `8px solid ${isLoadingMsg ? '#f59e0b' : '#dc2626'}` }}>
+                                <i className={`fas ${isLoadingMsg ? 'fa-spinner fa-spin text-orange-500' : 'fa-exclamation-circle text-red-600 animate-pulse'} text-7xl mb-6`}></i>
+                                <h2 className="text-3xl text-stone-800 font-bold mb-8 leading-relaxed">{sysMsg}</h2>
+                                {!isLoadingMsg && (
+                                    <button onClick={() => setSysMsg("")} className="action-btn action-btn-primary w-full text-2xl">确 定</button>
                                 )}
                             </div>
-                            <button onClick={returnToCamp} className="mt-8 text-xl text-stone-500 underline font-bold">离开房间</button>
                         </div>
-                    </div>
-                );
-            }
+                    )}
 
-            const activePlayers = gameMode === 'MULTI' ? safeGameStatePlayers : players;
-            const activePool = gameMode === 'MULTI' ? (Array.isArray(gameState?.pool) ? gameState.pool : Object.values(gameState?.pool || {})) : pool;
-            const activeTimer = gameMode === 'MULTI' ? (gameState?.timer || 9) : timer;
-            const activeRound = gameMode === 'MULTI' ? (gameState?.round || 1) : round;
-            const activeEndReason = gameMode === 'MULTI' ? (gameState?.endReason || "") : endReason;
-            
-            const myPlayerObj = gameMode === 'MULTI' ? activePlayers.find(p => p.uuid === myUuid) : activePlayers[0];
-            const hasIPicked = myPlayerObj ? myPlayerObj.hasPicked : false;
+                    {view === 'START' && (
+                        <div className="home-screen">
+                            <div className="title-board"><h1 className="title-text">勇探虎穴</h1></div>
+                            <div className="notice-board">
+                                <p className="text-center text-3xl mb-6 font-bold text-amber-900 border-b-4 border-amber-900 pb-4">
+                                    进入虎穴寻找无尽的宝藏吧！<br/>
+                                    <span className="text-2xl text-red-600 mt-2 block">警告：贪婪拿得太多，最终会害了自己！</span>
+                                </p>
+                                <ul className="text-2xl space-y-5 font-bold text-stone-800 flex flex-col items-center">
+                                    <li className="flex items-center bg-white/50 px-6 py-3 rounded-lg border-2 border-stone-300 w-full max-w-lg">
+                                        <i className="fas fa-weight-hanging text-stone-600 w-12 text-center text-3xl"></i>负重全场最高者：<strong className="text-red-600 text-3xl ml-auto">死！</strong>
+                                    </li>
+                                    <li className="flex items-center bg-white/50 px-6 py-3 rounded-lg border-2 border-stone-300 w-full max-w-lg">
+                                        <i className="fas fa-paw text-orange-600 w-12 text-center text-3xl"></i>虎气全场最盛者：<strong className="text-red-600 text-3xl ml-auto">死！</strong>
+                                    </li>
+                                    <li className="flex items-center bg-white/50 px-6 py-3 rounded-lg border-2 border-stone-300 w-full max-w-lg">
+                                        <i className="fas fa-droplet text-red-600 w-12 text-center text-3xl"></i>自身腥味多于虎气：<strong className="text-red-600 text-3xl ml-auto">死！</strong>
+                                    </li>
+                                </ul>
+                            </div>
+                            <div className="btn-group">
+                                <button onClick={() => setModal('RULES')} className="action-btn">规则说明</button>
+                                <button onClick={() => setModal('MODE_SELECT')} className="action-btn action-btn-primary">潜入虎穴</button>
+                                <button onClick={() => setModal('ITEMS')} className="action-btn">物品图鉴</button>
+                            </div>
 
-            if ((view === 'PLAY' || view === 'PLAYING' || view === 'END') && activePool && activePool.length > 0 && activePlayers && activePlayers.length > 0) {
-                return (
-                    <div className="game-board">
-                        <div className="top-bar">
-                            <div className="status-badge"><i className="fas fa-hourglass-half text-orange-500"></i><span className={activeTimer <= 3 ? "text-red-600 animate-pulse font-black" : ""}>{activeTimer}s</span></div>
-                            <div className="status-badge">第 {activeRound} 回合</div>
-                        </div>
-
-                        <div className="card-stage">
-                            {activePool.map((it, idx) => {
-                                const isLocked = it.takenBy !== -1 || hasIPicked;
-                                const picker = it.takenBy !== -1 ? activePlayers.find(p => p.id === it.takenBy) : null;
-                                const isMyItem = gameMode === 'SINGLE' ? it.takenBy === 0 : (picker && picker.uuid === myUuid);
-                                
-                                return (
-                                    <div key={it.uid || idx} 
-                                         onClick={() => !isLocked && (gameMode === 'SINGLE' ? executePickSingle(0, idx) : executePickMulti(idx))}
-                                         className={`treasure-card ${it.takenBy !== -1 ? 'locked' : ''}`}>
-                                        <div className="card-grid">
-                                            <div className="stat-cell"><i className="fas fa-eye text-orange-500 text-sm"></i>{it.v}</div>
-                                            <div className="stat-cell"><i className="fas fa-weight-hanging text-stone-500 text-sm"></i>{it.w}</div>
-                                            <div className="stat-cell"><i className="fas fa-paw text-orange-700 text-sm"></i>{it.t}</div>
-                                            <div className="stat-cell"><i className="fas fa-droplet text-red-600 text-sm"></i>{it.f}</div>
-                                        </div>
-                                        <div className="card-art">
-                                            <i className={`fas ${it.icon}`} style={{ color: it.color }}></i>
-                                            {picker && (
-                                                <div className="stamp" style={{ background: isMyItem ? '#e11d48' : '#2563eb' }}>
-                                                    {isMyItem ? '我的' : picker.name}
+                            {modal && (
+                                <div className="modal-overlay">
+                                    <div className="modal-box">
+                                        <i className="fas fa-times-circle close-btn" onClick={() => setModal(null)}></i>
+                                        {modal === 'MODE_SELECT' && (
+                                            <div className="flex flex-col items-center gap-8 py-8">
+                                                <h2 className="title-font text-6xl text-amber-900 mb-4">选择探险模式</h2>
+                                                <button onClick={startSingleGame} className="action-btn w-3/4 py-6 text-3xl"><i className="fas fa-user mr-4"></i>单机挑战 (含AI)</button>
+                                                <button onClick={gotoMultiSetup} className="action-btn action-btn-primary w-3/4 py-6 text-3xl"><i className="fas fa-users mr-4"></i>多人联机 (好友组队)</button>
+                                            </div>
+                                        )}
+                                        {modal === 'RULES' && (
+                                            <div className="text-left">
+                                                <h2 className="title-font text-5xl text-center mb-6 text-amber-900">生存法则</h2>
+                                                <div className="text-xl space-y-4 font-bold text-stone-800">
+                                                    <p>1. 探险分为 <span className="text-red-600">10个回合</span>，每回合展示 <span className="text-orange-600">5件宝物</span>，先抢先得！</p>
+                                                    <p>2. 第6回合开始，虎穴随时可能坍塌提前结束探险。</p>
+                                                    <p>3. 游戏结束时，所有人进行生死同步判定（符合以下任一条即死）：</p>
+                                                    <ul className="list-disc pl-10 text-red-700 text-2xl space-y-2 mt-2">
+                                                        <li>你身上的【腥味】大于【虎威】。</li>
+                                                        <li>你的【总负重】是全场最高！</li>
+                                                        <li>你的【总虎气】是全场最高！</li>
+                                                    </ul>
+                                                    <p className="mt-6 text-center text-2xl text-orange-800 border-t-2 border-orange-800 pt-4">在所有幸存者中，<strong>【总价值】最高者获胜！</strong></p>
                                                 </div>
-                                            )}
-                                        </div>
-                                        <div className="card-name">{it.name}</div>
+                                            </div>
+                                        )}
+                                        {modal === 'ITEMS' && (
+                                            <div>
+                                                <h2 className="title-font text-5xl mb-6 text-amber-900">全物品密卷</h2>
+                                                <div className="gallery-grid">
+                                                    {ITEMS.map(item => (
+                                                        <div key={item.id} className="gallery-item">
+                                                            <div className="text-4xl w-12 text-center" style={{color: item.color}}><i className={`fas ${item.icon}`}></i></div>
+                                                            <div className="flex-1">
+                                                                <div className="font-bold border-b-2 border-amber-900/20 mb-1 pb-1 text-stone-800">{item.name}</div>
+                                                                <div className="grid grid-cols-2 gap-1 text-xs font-bold">
+                                                                    <div className="bg-orange-100 rounded px-1"><i className="fas fa-eye text-orange-500 w-4"></i> {item.v}</div>
+                                                                    <div className="bg-stone-100 rounded px-1"><i className="fas fa-weight-hanging text-stone-500 w-4"></i> {item.w}</div>
+                                                                    <div className="bg-orange-100 rounded px-1"><i className="fas fa-paw text-orange-700 w-4"></i> {item.t}</div>
+                                                                    <div className="bg-red-100 rounded px-1"><i className="fas fa-droplet text-red-600 w-4"></i> {item.f}</div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
-                                );
-                            })}
+                                </div>
+                            )}
                         </div>
+                    )}
 
-                        <div className="bottom-scroll">
-                            <div className="roller" style={{left: '-17px'}}></div><div className="roller" style={{right: '-17px'}}></div>
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th className="text-left pl-4">探险家姓名</th>
-                                        <th><i className="fas fa-eye mr-1 text-orange-500"></i>价值</th>
-                                        <th><i className="fas fa-weight-hanging mr-1 text-stone-500"></i>重量</th>
-                                        <th><i className="fas fa-paw mr-1 text-orange-700"></i>虎气</th>
-                                        <th><i className="fas fa-droplet mr-1 text-red-600"></i>腥味</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {activePlayers.map(p => {
-                                        const isDanger = p.stats.f > p.stats.t && view !== 'END';
-                                        const isMe = gameMode === 'SINGLE' ? p.id === 0 : p.uuid === myUuid;
+                    {view === 'MULTI_SETUP' && (
+                        <div className="home-screen">
+                            <div className="title-board"><h1 className="title-text">联机大厅</h1></div>
+                            <div className="notice-board text-center">
+                                <div className="flex flex-col gap-6 items-center">
+                                    <input className="input-field w-64" placeholder="你的探险家代号" value={playerName} onChange={e => setPlayerName(e.target.value)} maxLength="8"/>
+                                    <div className="btn-group border-b-4 border-wood-light pb-6 w-full mt-4">
+                                        <button onClick={createRoom} className="action-btn action-btn-primary">建立新房间 (房主)</button>
+                                    </div>
+                                    <div className="flex items-center gap-4 mt-4">
+                                        <input className="input-field w-40" placeholder="输入4位房间号" value={joinCodeInput} onChange={e => setJoinCodeInput(e.target.value)} maxLength="4"/>
+                                        <button onClick={joinRoomAction} className="action-btn">加入好友房间</button>
+                                    </div>
+                                </div>
+                                <button onClick={() => setView('START')} className="mt-10 text-xl text-stone-500 underline font-bold">返回主菜单</button>
+                            </div>
+                        </div>
+                    )}
+
+                    {view === 'LOBBY' && gameState && (
+                        <div className="home-screen">
+                            <div className="title-board"><h1 className="title-text" style={{fontSize: '5rem'}}>队伍集结</h1></div>
+                            <div className="notice-board text-center">
+                                <h2 className="text-4xl text-amber-900 font-bold mb-4">房间号：<span className="text-red-600 tracking-widest">{roomId}</span></h2>
+                                <p className="text-xl text-stone-600 mb-8">({isHost ? "你是房主，准备就绪后点击开始" : "你是队员，请等待房主开始游戏"})</p>
+                                
+                                <div className="grid grid-cols-2 gap-4 mb-8">
+                                    {[0, 1, 2, 3].map(i => {
+                                        const p = (gameState.players || [])[i];
                                         return (
-                                            <tr key={p.id} className={`${isMe ? 'row-me' : ''} ${!p.alive && view === 'END' ? 'row-dead' : ''}`}>
-                                                <td className="text-left pl-4">{p.name} {isMe && gameMode === 'MULTI' ? "(我)" : ""} {!p.alive && view === 'END' && '💀'}</td>
-                                                <td>{p.stats.v}</td><td>{p.stats.w}</td><td className="text-orange-800">{p.stats.t}</td>
-                                                <td className={isDanger ? 'danger-text font-black text-2xl' : 'text-red-900'}>{p.stats.f}</td>
-                                            </tr>
+                                            <div key={i} className={`p-4 border-4 rounded-xl text-2xl font-bold ${p ? 'bg-orange-100 border-orange-500 text-stone-800' : 'bg-stone-200 border-stone-400 text-stone-400 border-dashed'}`}>
+                                                {p ? (p.uuid === myUuid ? `${p.name} (我)` : p.name) : "等待加入..."}
+                                                {p && p.isAI && <i className="fas fa-robot ml-2 text-stone-500"></i>}
+                                            </div>
                                         );
                                     })}
-                                </tbody>
-                            </table>
-                        </div>
-
-                        {view === 'END' && (
-                            <div className="modal-overlay">
-                                <div className="modal-box" style={{borderWidth: '8px', borderColor: '#78350f'}}>
-                                    <h2 className="text-5xl mb-6 text-orange-900 title-font">{activeEndReason}</h2>
-                                    <div className="space-y-3 mb-8">
-                                        {[...activePlayers].sort((a,b) => b.stats.v - a.stats.v).map(p => {
-                                            const isMe = gameMode === 'SINGLE' ? p.id === 0 : p.uuid === myUuid;
-                                            return (
-                                                <div key={p.id} className={`flex justify-between items-center p-4 border-4 rounded-xl ${p.alive ? 'bg-orange-100 border-orange-500' : 'bg-gray-300 border-gray-500'}`}>
-                                                    <div className="text-left">
-                                                        <div className="text-2xl font-black text-stone-800">
-                                                            {p.name} {isMe && gameMode === 'MULTI' ? "(我)" : ""}
-                                                            {p.alive && p.stats.v === Math.max(...activePlayers.filter(x=>x.alive).map(x=>x.stats.v)) && <i className="fas fa-crown text-yellow-500 ml-2"></i>}
-                                                        </div>
-                                                        <div className="text-base font-bold opacity-75">{p.alive ? "逃出生天！" : p.reason}</div>
-                                                    </div>
-                                                    <div className="text-4xl font-black text-stone-800">{p.alive ? p.stats.v : "---"}</div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                    <button onClick={returnToCamp} className="action-btn action-btn-primary">返回营地</button>
                                 </div>
-                            </div>
-                        )}
-                    </div>
-                );
-            }
 
-            // 【终极防崩溃层】只要状态有断层，绝不再显示黑白背景，必须给用户明确的反馈和日志
-            return (
-                <div className="text-white mt-20 flex flex-col items-center max-w-lg mx-auto text-center">
-                    <i className="fas fa-satellite-dish fa-pulse text-orange-500 text-6xl mb-6"></i>
-                    <div className="text-4xl font-bold font-sans tracking-widest mb-4">正在同步数据频道...</div>
-                    <div className="text-xl text-stone-400 bg-black/50 p-6 rounded-xl border border-stone-600">
-                        <p className="mb-2 text-yellow-500">【连接诊断面板】</p>
-                        <p>当前页面层级: <b>{view}</b></p>
-                        <p>当前游玩模式: <b>{gameMode || "尚未建立"}</b></p>
-                        <p>当前房间网络信号: {gameState ? <span className="text-green-500">已连接 <i className="fas fa-check-circle"></i></span> : <span className="text-red-500">等待云端下发...</span>}</p>
-                    </div>
-                    <button onClick={() => window.location.reload()} className="mt-10 action-btn action-btn-primary shadow-2xl">
-                        如果卡住太久，点击这里刷新重试
-                    </button>
-                </div>
+                                <div className="btn-group">
+                                    {isHost && (gameState.players || []).length < 4 && <button onClick={addAI} className="action-btn">添加 AI</button>}
+                                    {isHost ? (
+                                        <button onClick={startMultiGame} className={`action-btn ${(gameState.players || []).length === 4 ? 'action-btn-primary' : 'opacity-50 cursor-not-allowed'}`}>潜入虎穴</button>
+                                    ) : (
+                                        <div className="text-2xl text-amber-800 font-bold animate-pulse">等待房主发车...</div>
+                                    )}
+                                </div>
+                                <button onClick={returnToCamp} className="mt-8 text-xl text-stone-500 underline font-bold">离开房间</button>
+                            </div>
+                        </div>
+                    )}
+
+                    {(view === 'PLAY' || view === 'PLAYING' || view === 'END') && (
+                        <React.Fragment>
+                            {(() => {
+                                const activePlayers = gameMode === 'MULTI' ? (gameState?.players || []) : players;
+                                const activePool = gameMode === 'MULTI' ? (gameState?.pool || []) : pool;
+                                const activeTimer = gameMode === 'MULTI' ? (gameState?.timer || 9) : timer;
+                                const activeRound = gameMode === 'MULTI' ? (gameState?.round || 1) : round;
+                                const activeEndReason = gameMode === 'MULTI' ? (gameState?.endReason || "") : endReason;
+                                
+                                const myPlayerObj = gameMode === 'MULTI' ? activePlayers.find(p => p.uuid === myUuid) : activePlayers[0];
+                                const hasIPicked = myPlayerObj ? myPlayerObj.hasPicked : false;
+
+                                if (!activePool || activePool.length === 0 || !activePlayers || activePlayers.length === 0) {
+                                    return (
+                                        <div className="text-white mt-20 flex flex-col items-center max-w-lg mx-auto text-center">
+                                            <i className="fas fa-satellite-dish fa-pulse text-orange-500 text-6xl mb-6"></i>
+                                            <div className="text-4xl font-bold font-sans tracking-widest mb-4">正在同步数据频道...</div>
+                                        </div>
+                                    );
+                                }
+
+                                return (
+                                    <div className="game-board">
+                                        <div className="top-bar">
+                                            <div className="status-badge"><i className="fas fa-hourglass-half text-orange-500"></i><span className={activeTimer <= 3 ? "text-red-600 animate-pulse font-black" : ""}>{activeTimer}s</span></div>
+                                            <div className="status-badge">第 {activeRound} 回合</div>
+                                        </div>
+
+                                        <div className="card-stage">
+                                            {activePool.map((it, idx) => {
+                                                const isLocked = it.takenBy !== -1 || hasIPicked;
+                                                const picker = it.takenBy !== -1 ? activePlayers.find(p => p.id === it.takenBy) : null;
+                                                const isMyItem = gameMode === 'SINGLE' ? it.takenBy === 0 : (picker && picker.uuid === myUuid);
+                                                
+                                                return (
+                                                    <div key={it.uid || idx} 
+                                                         onClick={() => !isLocked && (gameMode === 'SINGLE' ? executePickSingle(0, idx) : executePickMulti(idx))}
+                                                         className={`treasure-card ${it.takenBy !== -1 ? 'locked' : ''}`}>
+                                                        <div className="card-grid">
+                                                            <div className="stat-cell"><i className="fas fa-eye text-orange-500 text-sm"></i>{it.v}</div>
+                                                            <div className="stat-cell"><i className="fas fa-weight-hanging text-stone-500 text-sm"></i>{it.w}</div>
+                                                            <div className="stat-cell"><i className="fas fa-paw text-orange-700 text-sm"></i>{it.t}</div>
+                                                            <div className="stat-cell"><i className="fas fa-droplet text-red-600 text-sm"></i>{it.f}</div>
+                                                        </div>
+                                                        <div className="card-art">
+                                                            <i className={`fas ${it.icon}`} style={{ color: it.color }}></i>
+                                                            {picker && (
+                                                                <div className="stamp" style={{ background: isMyItem ? '#e11d48' : '#2563eb' }}>
+                                                                    {isMyItem ? '我的' : picker.name}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        <div className="card-name">{it.name}</div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+
+                                        <div className="bottom-scroll">
+                                            <div className="roller" style={{left: '-17px'}}></div><div className="roller" style={{right: '-17px'}}></div>
+                                            <table>
+                                                <thead>
+                                                    <tr>
+                                                        <th className="text-left pl-4">探险家姓名</th>
+                                                        <th><i className="fas fa-eye mr-1 text-orange-500"></i>价值</th>
+                                                        <th><i className="fas fa-weight-hanging mr-1 text-stone-500"></i>重量</th>
+                                                        <th><i className="fas fa-paw mr-1 text-orange-700"></i>虎气</th>
+                                                        <th><i className="fas fa-droplet mr-1 text-red-600"></i>腥味</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {activePlayers.map(p => {
+                                                        const isDanger = p.stats.f > p.stats.t && view !== 'END';
+                                                        const isMe = gameMode === 'SINGLE' ? p.id === 0 : p.uuid === myUuid;
+                                                        return (
+                                                            <tr key={p.id} className={`${isMe ? 'row-me' : ''} ${!p.alive && view === 'END' ? 'row-dead' : ''}`}>
+                                                                <td className="text-left pl-4">{p.name} {isMe && gameMode === 'MULTI' ? "(我)" : ""} {!p.alive && view === 'END' && '💀'}</td>
+                                                                <td>{p.stats.v}</td><td>{p.stats.w}</td><td className="text-orange-800">{p.stats.t}</td>
+                                                                <td className={isDanger ? 'danger-text font-black text-2xl' : 'text-red-900'}>{p.stats.f}</td>
+                                                            </tr>
+                                                        );
+                                                    })}
+                                                </tbody>
+                                            </table>
+                                        </div>
+
+                                        {view === 'END' && (
+                                            <div className="modal-overlay">
+                                                <div className="modal-box" style={{borderWidth: '8px', borderColor: '#78350f'}}>
+                                                    <h2 className="text-5xl mb-6 text-orange-900 title-font">{activeEndReason}</h2>
+                                                    <div className="space-y-3 mb-8">
+                                                        {[...activePlayers].sort((a,b) => b.stats.v - a.stats.v).map(p => {
+                                                            const isMe = gameMode === 'SINGLE' ? p.id === 0 : p.uuid === myUuid;
+                                                            return (
+                                                                <div key={p.id} className={`flex justify-between items-center p-4 border-4 rounded-xl ${p.alive ? 'bg-orange-100 border-orange-500' : 'bg-gray-300 border-gray-500'}`}>
+                                                                    <div className="text-left">
+                                                                        <div className="text-2xl font-black text-stone-800">
+                                                                            {p.name} {isMe && gameMode === 'MULTI' ? "(我)" : ""}
+                                                                            {p.alive && p.stats.v === Math.max(...activePlayers.filter(x=>x.alive).map(x=>x.stats.v)) && <i className="fas fa-crown text-yellow-500 ml-2"></i>}
+                                                                        </div>
+                                                                        <div className="text-base font-bold opacity-75">{p.alive ? "逃出生天！" : p.reason}</div>
+                                                                    </div>
+                                                                    <div className="text-4xl font-black text-stone-800">{p.alive ? p.stats.v : "---"}</div>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                    <button onClick={returnToCamp} className="action-btn action-btn-primary">返回营地</button>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })()}
+                        </React.Fragment>
+                    )}
+                </>
             );
         };
 
