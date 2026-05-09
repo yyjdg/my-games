@@ -124,13 +124,12 @@
         const { useState, useEffect, useCallback, useRef } = React;
 
         const App = () => {
-            // 全局控制
-            const [view, setView] = useState('START'); // START, MULTI_SETUP, LOBBY, PLAY, END
-            const [modal, setModal] = useState(null); // 'RULES', 'ITEMS', 'MODE_SELECT', null
-            const [gameMode, setGameMode] = useState(null); // 'SINGLE', 'MULTI'
+            const [view, setView] = useState('START'); 
+            const [modal, setModal] = useState(null); 
+            const [gameMode, setGameMode] = useState(null);
             const aiTimers = useRef([]);
 
-            // ================= 【单机模式】状态与逻辑 =================
+            // ================= 【单机模式】 =================
             const [round, setRound] = useState(1);
             const [timer, setTimer] = useState(9);
             const [pool, setPool] = useState([]);
@@ -138,10 +137,7 @@
             const [endReason, setEndReason] = useState("");
 
             const startSingleGame = () => {
-                setGameMode('SINGLE');
-                setModal(null);
-                setRound(1);
-                
+                setGameMode('SINGLE'); setModal(null); setRound(1);
                 const initPlayers = [
                     { id: 0, name: "我 (探险家)", stats: { v: 0, w: 0, t: 0, f: 0 }, alive: true, reason: "", hasPicked: false },
                     { id: 1, name: "贪婪者 A", stats: { v: 0, w: 0, t: 0, f: 0 }, alive: true, reason: "", hasPicked: false },
@@ -149,53 +145,37 @@
                     { id: 3, name: "博弈者 C", stats: { v: 0, w: 0, t: 0, f: 0 }, alive: true, reason: "", hasPicked: false }
                 ];
                 setPlayers(initPlayers);
-                
-                // 【修复】Firebase 会过滤 null 值，统一使用 -1 代表未拾取
-                const shuffled = [...ITEMS].sort(() => 0.5 - Math.random());
-                setPool(shuffled.slice(0, 5).map(item => ({ ...item, uid: Math.random(), takenBy: -1 })));
-                
-                setTimer(9);
-                setView('PLAY');
+                setPool([...ITEMS].sort(() => 0.5 - Math.random()).slice(0, 5).map(item => ({ ...item, uid: Math.random(), takenBy: -1 })));
+                setTimer(9); setView('PLAY');
             };
 
             const executePickSingle = (playerId, itemIdx) => {
-                setPool(prevPool => {
-                    if (!prevPool[itemIdx] || prevPool[itemIdx].takenBy !== -1) return prevPool;
-                    const nextPool = [...prevPool];
-                    nextPool[itemIdx].takenBy = playerId;
-
-                    setPlayers(prevPlayers => {
-                        if (!prevPlayers[playerId] || prevPlayers[playerId].hasPicked) return prevPlayers;
-                        const nextPlayers = [...prevPlayers];
-                        nextPlayers[playerId] = {
-                            ...nextPlayers[playerId],
-                            stats: { ...nextPlayers[playerId].stats },
-                            hasPicked: true
-                        };
-                        const item = nextPool[itemIdx];
-                        nextPlayers[playerId].stats.v += item.v;
-                        nextPlayers[playerId].stats.w += item.w;
-                        nextPlayers[playerId].stats.t += item.t;
-                        nextPlayers[playerId].stats.f += item.f;
-                        return nextPlayers;
+                setPool(prev => {
+                    if (!prev[itemIdx] || prev[itemIdx].takenBy !== -1) return prev;
+                    const next = [...prev]; next[itemIdx].takenBy = playerId;
+                    setPlayers(pPrev => {
+                        if (!pPrev[playerId] || pPrev[playerId].hasPicked) return pPrev;
+                        const pNext = [...pPrev];
+                        pNext[playerId] = { ...pNext[playerId], stats: { ...pNext[playerId].stats }, hasPicked: true };
+                        const item = next[itemIdx];
+                        pNext[playerId].stats.v += item.v; pNext[playerId].stats.w += item.w;
+                        pNext[playerId].stats.t += item.t; pNext[playerId].stats.f += item.f;
+                        return pNext;
                     });
-                    return nextPool;
+                    return next;
                 });
             };
 
             const handleRoundEndSingle = useCallback(() => {
                 let isEnd = false; let msg = "";
                 if (round >= 10) { isEnd = true; msg = "十回合届满，虎穴崩塌！"; }
-                else if (round >= 6 && Math.random() < [0,0,0,0,0, 0.1, 0.25, 0.45, 0.7][round]) {
-                    isEnd = true; msg = `突发状况！第 ${round} 回合发生洞穴陷落！`;
-                }
+                else if (round >= 6 && Math.random() < [0,0,0,0,0, 0.1, 0.25, 0.45, 0.7][round]) { isEnd = true; msg = `突发状况！第 ${round} 回合发生洞穴陷落！`; }
+                
                 if (isEnd) {
                     setEndReason(msg); setView('END');
                     setPlayers(prev => {
-                        const finalData = JSON.parse(JSON.stringify(prev));
-                        const maxW = Math.max(...finalData.map(p => p.stats.w));
-                        const maxT = Math.max(...finalData.map(p => p.stats.t));
-                        return finalData.map(p => {
+                        const maxW = Math.max(...prev.map(p => p.stats.w)); const maxT = Math.max(...prev.map(p => p.stats.t));
+                        return prev.map(p => {
                             let dead = false; let reason = "逃出生天！";
                             if (p.stats.f > p.stats.t) { dead = true; reason = "腥味盖过虎气，被群狼分食"; }
                             else if (p.stats.w === maxW && maxW > 0) { dead = true; reason = "全场负重最高，被落石掩埋"; }
@@ -204,31 +184,26 @@
                         });
                     });
                 } else { 
-                    setRound(r => r + 1); 
-                    const shuffled = [...ITEMS].sort(() => 0.5 - Math.random());
-                    setPool(shuffled.slice(0, 5).map(item => ({ ...item, uid: Math.random(), takenBy: -1 })));
+                    setRound(r => r + 1); setTimer(9);
+                    setPool([...ITEMS].sort(() => 0.5 - Math.random()).slice(0, 5).map(item => ({ ...item, uid: Math.random(), takenBy: -1 })));
                     setPlayers(prev => prev.map(p => ({ ...p, hasPicked: false })));
-                    setTimer(9);
                 }
             }, [round]);
 
-            // 单机游戏循环
             useEffect(() => {
                 if (view === 'PLAY' && gameMode === 'SINGLE') {
                     aiTimers.current.forEach(clearTimeout); aiTimers.current = [];
                     [1, 2, 3].forEach(aiId => {
                         const t = setTimeout(() => {
-                            setPool(currPool => {
-                                const avail = currPool.map((it, i) => it.takenBy === -1 ? i : -1).filter(i => i !== -1);
+                            setPool(curr => {
+                                const avail = curr.map((it, i) => it.takenBy === -1 ? i : -1).filter(i => i !== -1);
                                 if (avail.length > 0) executePickSingle(aiId, avail[Math.floor(Math.random() * avail.length)]);
-                                return currPool;
+                                return curr;
                             });
                         }, 1000 + Math.random() * 4000);
                         aiTimers.current.push(t);
                     });
-                    const countdown = setInterval(() => {
-                        setTimer(t => { if (t <= 1) { handleRoundEndSingle(); return 9; } return t - 1; });
-                    }, 1000);
+                    const countdown = setInterval(() => { setTimer(t => { if (t <= 1) { handleRoundEndSingle(); return 9; } return t - 1; }); }, 1000);
                     return () => { clearInterval(countdown); aiTimers.current.forEach(clearTimeout); };
                 }
             }, [round, view, gameMode, handleRoundEndSingle]);
@@ -245,38 +220,87 @@
 
             const gotoMultiSetup = () => { setGameMode('MULTI'); setModal(null); setView('MULTI_SETUP'); };
 
-            const createRoom = () => {
+            const createRoom = async () => {
                 const name = playerName.trim() || "房主"; const newRoomId = Math.floor(1000 + Math.random() * 9000).toString();
                 setRoomId(newRoomId); setIsHost(true); setPlayerId(0);
-                db.ref(`tigercave_rooms/${newRoomId}`).set({
-                    status: 'WAITING', round: 1, timer: 9, endReason: "",
-                    players: [{ id: 0, uuid: myUuid, name: name, isAI: false, stats: { v: 0, w: 0, t: 0, f: 0 }, alive: true, reason: "", hasPicked: false }],
-                    pool: []
-                });
-                setView('LOBBY');
+                try {
+                    await db.ref(`tigercave_rooms/${newRoomId}`).set({
+                        status: 'WAITING', round: 1, timer: 9, endReason: "",
+                        players: [{ id: 0, uuid: myUuid, name: name, isAI: false, stats: { v: 0, w: 0, t: 0, f: 0 }, alive: true, reason: "", hasPicked: false }],
+                        pool: []
+                    });
+                    console.log("房间创建成功:", newRoomId);
+                    setView('LOBBY');
+                } catch(e) {
+                    console.error("创建房间失败:", e);
+                    alert("网络错误，创建失败！");
+                }
             };
 
-            const joinRoomAction = () => {
-                const code = joinCodeInput.trim(); if (!code) return alert("请输入房间号");
+            // 【重构核心】全面加入 async/await 和 Try-Catch，不再允许错误被静默吞没！
+            const joinRoomAction = async () => {
+                const code = joinCodeInput.trim(); 
+                if (!code) return alert("请输入房间号");
                 const name = playerName.trim() || `玩家_${myUuid.substring(0,3)}`;
-                const roomRef = db.ref(`tigercave_rooms/${code}`);
-                roomRef.once('value', snapshot => {
-                    if (!snapshot.exists()) return alert("房间不存在！");
-                    const data = snapshot.val();
-                    const playersArr = Array.isArray(data.players) ? data.players : Object.values(data.players || {});
+                
+                console.log("【动作】开始尝试加入房间:", code);
+                try {
+                    const roomRef = db.ref(`tigercave_rooms/${code}`);
                     
-                    if (data.status !== 'WAITING' || playersArr.length >= 4) return alert("房间已满或游戏已开始！");
+                    // 1. 获取最新快照以校验合法性
+                    const snap = await roomRef.once('value');
+                    if (!snap.exists()) {
+                        console.warn("房间不存在");
+                        return alert("此房间号不存在！");
+                    }
                     
+                    const data = snap.val();
+                    if (data.status !== 'WAITING') {
+                        console.warn("房间状态不是 WAITING", data.status);
+                        return alert("对局已开始或已结束，无法加入！");
+                    }
+                    
+                    const pArr = Array.isArray(data.players) ? data.players : Object.values(data.players || {});
+                    if (pArr.length >= 4) {
+                        console.warn("房间人数已满", pArr.length);
+                        return alert("房间人数已满（最多4人）！");
+                    }
+
+                    // 2. 发起更新事务
                     roomRef.transaction(curr => {
-                        if(!curr || curr.status !== 'WAITING') return curr;
+                        console.log("【事务运算中】", curr);
+                        // 当本地缓存还未建立时，Firebase会以 null 传入。此时我们返回 curr 让其从服务端拉取并重试
+                        if (curr === null) return curr; 
+                        if (curr.status !== 'WAITING') return undefined; // 返回 undefined 会安全中止事务
+                        
                         const cPlayers = Array.isArray(curr.players) ? curr.players : Object.values(curr.players || {});
-                        if(cPlayers.length >= 4) return curr;
+                        if(cPlayers.length >= 4) return undefined; 
+                        
+                        // 防止网络波动导致的重复加入
+                        if (cPlayers.find(p => p.uuid === myUuid)) return curr;
                         
                         cPlayers.push({ id: cPlayers.length, uuid: myUuid, name: name, isAI: false, stats: { v: 0, w: 0, t: 0, f: 0 }, alive: true, reason: "", hasPicked: false });
                         curr.players = cPlayers;
                         return curr;
-                    }, (err, committed) => { if (committed) { setRoomId(code); setIsHost(false); setView('LOBBY'); } else alert("加入失败，可能发生冲突"); });
-                });
+                    }, (err, committed, finalSnap) => {
+                        if (err) {
+                            console.error("加入事务异常:", err);
+                            alert("加入发生异常: " + err.message);
+                        } else if (!committed) {
+                            console.warn("加入被拒绝或中止，最终状态:", finalSnap?.val());
+                            alert("加入失败，可能房间刚好满员或已经发车！");
+                        } else {
+                            console.log("【事务成功】正式进入房间");
+                            setRoomId(code);
+                            setIsHost(false);
+                            setView('LOBBY');
+                        }
+                    });
+
+                } catch (error) {
+                    console.error("加入流程发生网络故障:", error);
+                    alert("网络波动，读取房间数据失败！");
+                }
             };
 
             const addAI = () => {
@@ -284,7 +308,7 @@
                 db.ref(`tigercave_rooms/${roomId}`).transaction(curr => {
                     if(!curr) return curr;
                     const cPlayers = Array.isArray(curr.players) ? curr.players : Object.values(curr.players || {});
-                    if(cPlayers.length >= 4) return curr;
+                    if(cPlayers.length >= 4) return undefined;
                     
                     const aiNames = ["贪婪者 A", "谨慎者 B", "博弈者 C"]; const nextId = cPlayers.length;
                     cPlayers.push({ id: nextId, uuid: `AI_${Math.random()}`, name: aiNames[nextId-1] || `AI_${nextId}`, isAI: true, stats: { v: 0, w: 0, t: 0, f: 0 }, alive: true, reason: "", hasPicked: false });
@@ -299,12 +323,8 @@
                 
                 db.ref(`tigercave_rooms/${roomId}`).transaction(curr => {
                     if(!curr) return curr; 
-                    // 【致命修复】统一使用 'PLAY' 作为游戏进行中状态，之前混用了 'PLAYING'
-                    curr.status = 'PLAY'; 
-                    curr.round = 1; curr.timer = 9; curr.endReason = "";
-                    
-                    const shuffled = [...ITEMS].sort(() => 0.5 - Math.random());
-                    curr.pool = shuffled.slice(0, 5).map(item => ({...item, uid: Math.random(), takenBy: -1}));
+                    curr.status = 'PLAY'; curr.round = 1; curr.timer = 9; curr.endReason = "";
+                    curr.pool = [...ITEMS].sort(() => 0.5 - Math.random()).slice(0, 5).map(item => ({...item, uid: Math.random(), takenBy: -1}));
                     
                     const cPlayers = Array.isArray(curr.players) ? curr.players : Object.values(curr.players || {});
                     cPlayers.forEach(p => { p.stats = { v: 0, w: 0, t: 0, f: 0 }; p.alive = true; p.reason = ""; p.hasPicked = false; });
@@ -316,7 +336,6 @@
             const executePickMulti = (itemIdx) => {
                 if (playerId === -1) return;
                 db.ref(`tigercave_rooms/${roomId}`).transaction(data => {
-                    // 兼容两种状态名
                     if (!data || (data.status !== 'PLAY' && data.status !== 'PLAYING')) return data;
                     const cPlayers = Array.isArray(data.players) ? data.players : Object.values(data.players || {});
                     const cPool = Array.isArray(data.pool) ? data.pool : Object.values(data.pool || {});
@@ -325,14 +344,10 @@
                     
                     cPool[itemIdx].takenBy = playerId; 
                     const item = cPool[itemIdx];
-                    cPlayers[playerId].stats.v += item.v; 
-                    cPlayers[playerId].stats.w += item.w;
-                    cPlayers[playerId].stats.t += item.t; 
-                    cPlayers[playerId].stats.f += item.f;
+                    cPlayers[playerId].stats.v += item.v; cPlayers[playerId].stats.w += item.w;
+                    cPlayers[playerId].stats.t += item.t; cPlayers[playerId].stats.f += item.f;
                     cPlayers[playerId].hasPicked = true; 
-                    
-                    data.pool = cPool;
-                    data.players = cPlayers;
+                    data.pool = cPool; data.players = cPlayers;
                     return data;
                 });
             };
@@ -340,21 +355,24 @@
             // 联机数据同步监听
             useEffect(() => {
                 if (!roomId || gameMode !== 'MULTI') return;
+                console.log("【连接监听器】开启房间监听:", roomId);
                 const ref = db.ref(`tigercave_rooms/${roomId}`);
                 const listener = ref.on('value', snap => {
                     const data = snap.val();
                     if (data) {
                         setGameState(data); 
-                        // 将数据库状态映射到本地的 view
                         setView(data.status === 'WAITING' ? 'LOBBY' : data.status);
                         const cPlayers = Array.isArray(data.players) ? data.players : Object.values(data.players || {});
                         const myIdx = cPlayers.findIndex(p => p.uuid === myUuid);
                         if(myIdx !== -1) setPlayerId(myIdx);
                     } else {
-                        setRoomId(""); setGameState(null); setView('START'); alert("房间已解散或断开连接。");
+                        setRoomId(""); setGameState(null); setView('START'); alert("房间已被解散或断开连接。");
                     }
                 });
-                return () => ref.off('value', listener);
+                return () => {
+                    console.log("【断开监听器】");
+                    ref.off('value', listener);
+                };
             }, [roomId, myUuid, gameMode]);
 
             // 联机计时器 (房主独占)
@@ -382,8 +400,7 @@
                                 });
                             } else {
                                 data.round += 1; data.timer = 9;
-                                const shuffled = [...ITEMS].sort(() => 0.5 - Math.random());
-                                data.pool = shuffled.slice(0, 5).map(item => ({...item, uid: Math.random(), takenBy: -1}));
+                                data.pool = [...ITEMS].sort(() => 0.5 - Math.random()).slice(0, 5).map(item => ({...item, uid: Math.random(), takenBy: -1}));
                                 cPlayers.forEach(p => p.hasPicked = false);
                             }
                             data.players = cPlayers;
@@ -394,13 +411,10 @@
                 return () => clearInterval(interval);
             }, [isHost, view, roomId, gameMode]);
 
-            // 联机 AI 托管 (房主独占，增加延迟错峰执行)
+            // 联机 AI 托管 (房主独占)
             useEffect(() => {
                 if (!isHost || (view !== 'PLAY' && view !== 'PLAYING') || gameMode !== 'MULTI' || !gameState || !roomId) return;
-                
-                aiTimers.current.forEach(clearTimeout); 
-                aiTimers.current = [];
-                
+                aiTimers.current.forEach(clearTimeout); aiTimers.current = [];
                 const currentPlayers = Array.isArray(gameState.players) ? gameState.players : Object.values(gameState.players || {});
                 
                 currentPlayers.forEach((p, idx) => {
@@ -419,14 +433,10 @@
                                     const pickIdx = avail[Math.floor(Math.random() * avail.length)];
                                     cPool[pickIdx].takenBy = idx; 
                                     const item = cPool[pickIdx];
-                                    cPlayers[idx].stats.v += item.v; 
-                                    cPlayers[idx].stats.w += item.w;
-                                    cPlayers[idx].stats.t += item.t; 
-                                    cPlayers[idx].stats.f += item.f;
+                                    cPlayers[idx].stats.v += item.v; cPlayers[idx].stats.w += item.w;
+                                    cPlayers[idx].stats.t += item.t; cPlayers[idx].stats.f += item.f;
                                     cPlayers[idx].hasPicked = true;
-                                    
-                                    data.pool = cPool;
-                                    data.players = cPlayers;
+                                    data.pool = cPool; data.players = cPlayers;
                                 }
                                 return data;
                             });
@@ -446,14 +456,6 @@
             };
 
             // ================= 视图渲染 =================
-            // 加入打印输出，如果页面无法显示可以通过 F12 控制台查看原因
-            console.log("【渲染流水线诊断】", {
-                currentView: view,
-                currentGameMode: gameMode,
-                poolCount: gameMode === 'MULTI' ? (gameState?.pool ? Object.values(gameState.pool).length : 0) : pool.length,
-                playersCount: gameMode === 'MULTI' ? (gameState?.players ? Object.values(gameState.players).length : 0) : players.length,
-                dbStatus: gameState?.status
-            });
 
             if (view === 'START') {
                 return (
@@ -558,7 +560,6 @@
                 );
             }
 
-            // 【防崩溃层】统一使用安全的数组解析来提取当前参与者
             const safeGameStatePlayers = Array.isArray(gameState?.players) ? gameState?.players : Object.values(gameState?.players || {});
             
             if (view === 'LOBBY' && gameState) {
@@ -595,7 +596,6 @@
                 );
             }
 
-            // 【防崩溃层】统一单机与联机的数据源以供渲染
             const activePlayers = gameMode === 'MULTI' ? safeGameStatePlayers : players;
             const activePool = gameMode === 'MULTI' ? (Array.isArray(gameState?.pool) ? gameState.pool : Object.values(gameState?.pool || {})) : pool;
             const activeTimer = gameMode === 'MULTI' ? (gameState?.timer || 9) : timer;
@@ -605,7 +605,6 @@
             const myPlayerObj = gameMode === 'MULTI' ? activePlayers.find(p => p.uuid === myUuid) : activePlayers[0];
             const hasIPicked = myPlayerObj ? myPlayerObj.hasPicked : false;
 
-            // 这里做了一个全面兼容：无论是 PLAY 还是 PLAYING 都认为可以进行游戏，容错率拉满
             if ((view === 'PLAY' || view === 'PLAYING' || view === 'END') && activePool && activePool.length > 0 && activePlayers && activePlayers.length > 0) {
                 return (
                     <div className="game-board">
@@ -617,7 +616,6 @@
                         <div className="card-stage">
                             {activePool.map((it, idx) => {
                                 const isLocked = it.takenBy !== -1 || hasIPicked;
-                                // 提取拿走该物品的玩家对象
                                 const picker = it.takenBy !== -1 ? activePlayers.find(p => p.id === it.takenBy) : null;
                                 const isMyItem = gameMode === 'SINGLE' ? it.takenBy === 0 : (picker && picker.uuid === myUuid);
                                 
@@ -702,17 +700,22 @@
                 );
             }
 
-            // 新增：如果因为网络延迟拿不到数据，不再只显示空背景，给一个缓冲提示
-            if (view === 'PLAY' || view === 'PLAYING') {
-                return (
-                    <div className="text-white text-4xl mt-20 flex flex-col items-center">
-                        <i className="fas fa-spinner fa-spin text-orange-500 text-6xl mb-6"></i>
-                        <div>正在生成地图与宝藏，请稍候...</div>
+            // 【终极防崩溃层】只要状态有断层，绝不再显示黑白背景，必须给用户明确的反馈和日志
+            return (
+                <div className="text-white mt-20 flex flex-col items-center max-w-lg mx-auto text-center">
+                    <i className="fas fa-satellite-dish fa-pulse text-orange-500 text-6xl mb-6"></i>
+                    <div className="text-4xl font-bold font-sans tracking-widest mb-4">正在同步数据频道...</div>
+                    <div className="text-xl text-stone-400 bg-black/50 p-6 rounded-xl border border-stone-600">
+                        <p className="mb-2 text-yellow-500">【连接诊断面板】</p>
+                        <p>当前页面层级: <b>{view}</b></p>
+                        <p>当前游玩模式: <b>{gameMode || "尚未建立"}</b></p>
+                        <p>当前房间网络信号: {gameState ? <span className="text-green-500">已连接 <i className="fas fa-check-circle"></i></span> : <span className="text-red-500">等待云端下发...</span>}</p>
                     </div>
-                );
-            }
-
-            return null; // 正常情况下永远不应该运行到这里了
+                    <button onClick={() => window.location.reload()} className="mt-10 action-btn action-btn-primary shadow-2xl">
+                        如果卡住太久，点击这里刷新重试
+                    </button>
+                </div>
+            );
         };
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
