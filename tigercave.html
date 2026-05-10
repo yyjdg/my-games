@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>勇探虎穴 - 清爽重制版 (局域网 P2P 无损 UI 版)</title>
+    <title>勇探虎穴 - 清爽重制版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
@@ -63,7 +63,7 @@
             margin: 0;
             line-height: 1;
             letter-spacing: 8px;
-            white-space: nowrap;
+            white-space: nowrap; /* 强制不换行，解决竖排问题 */
         }
 
         .notice-board {
@@ -282,6 +282,7 @@
         }
         .close-btn:hover { transform: scale(1.1) rotate(90deg); color: #dc2626; }
         
+        /* 物品图鉴网格 */
         .gallery-grid {
             display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 15px; margin-top: 20px;
         }
@@ -295,8 +296,9 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect } = React;
+        const { useState, useEffect, useCallback, useRef } = React;
 
+        // 修正了配剑图标，确保颜色和数值合理
         const ITEMS = [
             { id: 1, name: "虎穴残页", v: 1, w: 0, t: 0, f: 0, icon: "fa-scroll", color: "#a1a1aa" },
             { id: 2, name: "一节枯骨", v: 2, w: 0, t: 1, f: 0, icon: "fa-bone", color: "#d6d3d1" },
@@ -306,105 +308,157 @@
             { id: 6, name: "遗落行囊", v: 6, w: 1, t: 3, f: 1, icon: "fa-box-archive", color: "#78716c" },
             { id: 7, name: "祭祀金杯", v: 7, w: 3, t: 0, f: 1, icon: "fa-wine-glass", color: "#b45309" },
             { id: 8, name: "黄金虎符", v: 8, w: 3, t: 4, f: 2, icon: "fa-cat", color: "#fbbf24" },
-            { id: 9, name: "将军配剑", v: 9, w: 6, t: 1, f: 0, icon: "fa-khanda", color: "#64748b" },
+            { id: 9, name: "将军配剑", v: 9, w: 6, t: 1, f: 0, icon: "fa-khanda", color: "#64748b" }, // 剑的图标
             { id: 10, name: "百兽王冠", v: 10, w: 4, t: 1, f: 2, icon: "fa-crown", color: "#fb923c" },
             { id: 11, name: "狂暴虎魂", v: 12, w: 3, t: 0, f: 3, icon: "fa-fire", color: "#ef4444" }
         ];
 
         const App = () => {
-            const [view, setView] = useState('START'); 
-            const [modal, setModal] = useState(null); 
-            
-            // WebSocket 联机状态
-            const [ws, setWs] = useState(null);
-            const [wsAddress, setWsAddress] = useState("localhost:8080");
-            const [playerName, setPlayerName] = useState("探险家");
-            const [myId, setMyId] = useState(null);
-            const [isConnected, setIsConnected] = useState(false);
-            const [errorMsg, setErrorMsg] = useState("");
-
-            // 由 Python 服务端管理的权威游戏数据
+            const [view, setView] = useState('START'); // START, PLAY, END
+            const [modal, setModal] = useState(null); // 'RULES', 'ITEMS', null
             const [round, setRound] = useState(1);
             const [timer, setTimer] = useState(9);
             const [pool, setPool] = useState([]);
             const [players, setPlayers] = useState([]);
             const [endReason, setEndReason] = useState("");
 
-            const connectServer = () => {
-                if (!wsAddress) return;
-                setErrorMsg("");
-                try {
-                    const socket = new WebSocket(`ws://${wsAddress.trim()}`);
-                    
-                    socket.onopen = () => {
-                        setIsConnected(true);
-                        setWs(socket);
-                        socket.send(JSON.stringify({ type: "join", name: playerName.trim() || "探险家" }));
-                    };
+            const aiTimers = useRef([]);
 
-                    socket.onmessage = (event) => {
-                        try {
-                            const data = JSON.parse(event.data);
-                            if (data.type === "sync") {
-                                const st = data.state;
-                                setRound(st.round);
-                                setTimer(st.timer);
-                                setPool(st.pool);
-                                setPlayers(st.players);
-                                setEndReason(st.endReason);
-                                
-                                // 响应主机的全局视图切换
-                                if (st.view === 'LOBBY') {
-                                    setView('START');
-                                    setModal('CONNECT');
-                                } else if (st.view === 'PLAY') {
-                                    setView('PLAY');
-                                    setModal(null);
-                                } else if (st.view === 'END') {
-                                    setView('END');
-                                }
-                            } else if (data.type === "joined") {
-                                setMyId(data.myId);
-                            } else if (data.type === "error") {
-                                setErrorMsg(data.msg);
-                                socket.close();
+            const generatePool = useCallback(() => {
+                const shuffled = [...ITEMS].sort(() => 0.5 - Math.random());
+                const currentPool = shuffled.slice(0, 5).map(item => ({
+                    ...item,
+                    uid: Math.random(),
+                    takenBy: null
+                }));
+                setPool(currentPool);
+                setPlayers(prev => prev.map(p => ({ ...p, hasPicked: false })));
+                setTimer(9);
+            }, []);
+
+            const initGame = () => {
+                setRound(1);
+                setModal(null);
+                setPlayers([
+                    { id: 0, name: "我 (探险家)", stats: { v: 0, w: 0, t: 0, f: 0 }, alive: true, reason: "" },
+                    { id: 1, name: "贪婪者 A", stats: { v: 0, w: 0, t: 0, f: 0 }, alive: true, reason: "" },
+                    { id: 2, name: "谨慎者 B", stats: { v: 0, w: 0, t: 0, f: 0 }, alive: true, reason: "" },
+                    { id: 3, name: "博弈者 C", stats: { v: 0, w: 0, t: 0, f: 0 }, alive: true, reason: "" }
+                ]);
+                generatePool();
+                setView('PLAY');
+            };
+
+            const executePick = (playerId, itemIdx) => {
+                setPool(prevPool => {
+                    if (prevPool[itemIdx].takenBy !== null) return prevPool;
+                    const nextPool = [...prevPool];
+                    nextPool[itemIdx].takenBy = playerId;
+
+                    setPlayers(prevPlayers => {
+                        if (prevPlayers[playerId].hasPicked) return prevPlayers;
+                        const nextPlayers = [...prevPlayers];
+                        const item = nextPool[itemIdx];
+                        nextPlayers[playerId].stats.v += item.v;
+                        nextPlayers[playerId].stats.w += item.w;
+                        nextPlayers[playerId].stats.t += item.t;
+                        nextPlayers[playerId].stats.f += item.f;
+                        nextPlayers[playerId].hasPicked = true;
+                        return nextPlayers;
+                    });
+                    return nextPool;
+                });
+            };
+
+            useEffect(() => {
+                if (view === 'PLAY') {
+                    aiTimers.current.forEach(clearTimeout);
+                    aiTimers.current = [];
+
+                    [1, 2, 3].forEach(aiId => {
+                        const delay = 500 + Math.random() * 7500;
+                        const t = setTimeout(() => {
+                            setPool(curr => {
+                                const avail = curr.map((it, i) => it.takenBy === null ? i : -1).filter(i => i !== -1);
+                                if (avail.length > 0) executePick(aiId, avail[Math.floor(Math.random() * avail.length)]);
+                                return curr;
+                            });
+                        }, delay);
+                        aiTimers.current.push(t);
+                    });
+
+                    const countdown = setInterval(() => {
+                        setTimer(t => {
+                            if (t <= 1) {
+                                handleRoundEnd();
+                                return 9;
                             }
-                        } catch (e) { console.error(e); }
+                            return t - 1;
+                        });
+                    }, 1000);
+                    
+                    return () => { 
+                        clearInterval(countdown); 
+                        aiTimers.current.forEach(clearTimeout); 
                     };
+                }
+            }, [round, view]);
 
-                    socket.onerror = () => {
-                        setErrorMsg("连接失败！请确认 Python 服务端已开启且局域网 IP 正确。");
-                        setIsConnected(false);
-                        setWs(null);
-                    };
+            const handleRoundEnd = () => {
+                let isEnd = false;
+                let msg = "";
+                
+                if (round >= 10) { 
+                    isEnd = true; msg = "十回合届满，虎穴崩塌！"; 
+                } else if (round >= 6) {
+                    const deathProb = [0,0,0,0,0, 0.1, 0.25, 0.45, 0.7];
+                    if (Math.random() < deathProb[round]) {
+                        isEnd = true; msg = `突发状况！第 ${round} 回合发生洞穴陷落！`;
+                    }
+                }
 
-                    socket.onclose = () => {
-                        setIsConnected(false);
-                        setWs(null);
-                    };
-                } catch (e) {
-                    setErrorMsg("WebSocket 地址格式填写错误！");
+                if (isEnd) {
+                    setEndReason(msg);
+                    performFinalCalculation();
+                } else {
+                    setRound(r => r + 1);
+                    generatePool();
                 }
             };
 
-            const executePick = (idx) => {
-                if (ws && isConnected) {
-                    ws.send(JSON.stringify({ type: "pick", itemIdx: idx }));
-                }
-            };
+            const performFinalCalculation = () => {
+                setView('END');
+                setPlayers(prev => {
+                    const finalData = JSON.parse(JSON.stringify(prev));
+                    const maxWeight = Math.max(...finalData.map(p => p.stats.w));
+                    const maxTiger = Math.max(...finalData.map(p => p.stats.t));
 
-            const myPlayer = players.find(p => p.id === myId);
-            const myHasPicked = myPlayer ? myPlayer.hasPicked : false;
+                    return finalData.map(p => {
+                        let dead = false;
+                        let reason = "";
+
+                        if (p.stats.f > p.stats.t) {
+                            dead = true; reason = "腥味盖过虎气，被群狼分食";
+                        } else if (p.stats.w === maxWeight && maxWeight > 0) {
+                            dead = true; reason = "全场负重最高，被落石掩埋";
+                        } else if (p.stats.t === maxTiger && maxTiger > 0) {
+                            dead = true; reason = "全场虎气最盛，激怒了虎王";
+                        }
+
+                        return { ...p, alive: !dead, reason };
+                    });
+                });
+            };
 
             if (view === 'START') {
                 return (
                     <div className="home-screen">
-                        {/* 原封不动的横向主标题 */}
+                        {/* 纯净的横向主标题 */}
                         <div className="title-board">
                             <h1 className="title-text">勇探虎穴</h1>
                         </div>
 
-                        {/* 原封不动的居中生存法则公告板 */}
+                        {/* 居中大板子 */}
                         <div className="notice-board">
                             <p className="text-center text-3xl mb-6 font-bold text-amber-900 border-b-4 border-amber-900 pb-4">
                                 进入虎穴寻找无尽的宝藏吧！<br/>
@@ -426,73 +480,18 @@
                             </ul>
                         </div>
 
-                        {/* 绝对原封不动的三大经典并排按钮！点击中间打开联机弹窗 */}
+                        {/* 并排三大按钮 */}
                         <div className="btn-group">
                             <button onClick={() => setModal('RULES')} className="action-btn">规则说明</button>
-                            <button onClick={() => setModal('CONNECT')} className="action-btn action-btn-primary">潜入虎穴</button>
+                            <button onClick={initGame} className="action-btn action-btn-primary">潜入虎穴</button>
                             <button onClick={() => setModal('ITEMS')} className="action-btn">物品图鉴</button>
                         </div>
 
-                        {/* 完美复用现有系统的模态框 */}
+                        {/* 模态框 */}
                         {modal && (
                             <div className="modal-overlay">
                                 <div className="modal-box">
                                     <i className="fas fa-times-circle close-btn" onClick={() => setModal(null)}></i>
-                                    
-                                    {/* 优雅新增的联机配置/大厅弹窗视图 */}
-                                    {modal === 'CONNECT' && (
-                                        <div className="text-left">
-                                            <h2 className="title-font text-5xl text-center mb-6 text-amber-900">局域网集结营地</h2>
-                                            
-                                            {!isConnected ? (
-                                                <div className="flex flex-col gap-5 max-w-md mx-auto font-bold text-xl text-stone-800 mt-4">
-                                                    <div className="flex flex-col gap-2">
-                                                        <label>探险家大名：</label>
-                                                        <input type="text" 
-                                                               className="p-3 border-4 border-amber-900 rounded-lg text-center font-bold bg-white"
-                                                               value={playerName} 
-                                                               onChange={e => setPlayerName(e.target.value)} 
-                                                               placeholder="输入你的昵称" />
-                                                    </div>
-                                                    <div className="flex flex-col gap-2">
-                                                        <label>主机端 IP 地址：</label>
-                                                        <input type="text" 
-                                                               className="p-3 border-4 border-amber-900 rounded-lg text-center font-bold font-mono bg-white"
-                                                               value={wsAddress} 
-                                                               onChange={e => setWsAddress(e.target.value)} 
-                                                               placeholder="例如: 192.168.1.10:8080" />
-                                                    </div>
-                                                    {errorMsg && <div className="text-red-600 text-center animate-pulse">{errorMsg}</div>}
-                                                    <button onClick={connectServer} className="action-btn action-btn-primary w-full mt-4">连接房间</button>
-                                                </div>
-                                            ) : (
-                                                <div className="flex flex-col items-center gap-6 text-stone-800 font-bold mt-4">
-                                                    <div className="text-green-700 text-2xl">🟢 已成功潜入局域网探险房间！</div>
-                                                    
-                                                    <div className="w-full bg-amber-100/80 border-4 border-amber-900 rounded-xl p-5">
-                                                        <div className="text-lg text-amber-900 border-b-2 border-amber-900/20 pb-2 mb-4 text-left">
-                                                            当前营地集结的探险队 ({players.length}/4 人)：
-                                                        </div>
-                                                        <div className="flex flex-wrap gap-3 justify-center">
-                                                            {players.map(p => (
-                                                                <div key={p.id} className="bg-amber-900 text-white px-5 py-2 rounded-full text-lg shadow flex items-center gap-2">
-                                                                    <i className="fas fa-user"></i>{p.name} {p.id === myId ? " (你)" : ""}
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                        <div className="text-xs text-stone-600 mt-6 text-center font-normal">
-                                                            提示：人数不足 4 人时点击开始，系统将自动派出 AI 补齐探险阵容。
-                                                        </div>
-                                                    </div>
-
-                                                    <button onClick={() => ws.send(JSON.stringify({ type: "start" }))} className="action-btn action-btn-primary w-full max-w-md">
-                                                        全员就绪，开始探险！
-                                                    </button>
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-
                                     {modal === 'RULES' && (
                                         <div className="text-left">
                                             <h2 className="title-font text-5xl text-center mb-6 text-amber-900">生存法则</h2>
@@ -509,7 +508,6 @@
                                             </div>
                                         </div>
                                     )}
-
                                     {modal === 'ITEMS' && (
                                         <div>
                                             <h2 className="title-font text-5xl mb-6 text-amber-900">全物品密卷</h2>
@@ -550,10 +548,10 @@
 
                     <div className="card-stage">
                         {pool.map((it, idx) => {
-                            const isLocked = it.takenBy !== null || myHasPicked;
+                            const isLocked = it.takenBy !== null || players[0].hasPicked;
                             return (
                                 <div key={it.uid} 
-                                     onClick={() => !isLocked && executePick(idx)}
+                                     onClick={() => !isLocked && executePick(0, idx)}
                                      className={`treasure-card ${it.takenBy !== null ? 'locked' : ''}`}>
                                     
                                     <div className="card-grid">
@@ -566,8 +564,8 @@
                                     <div className="card-art">
                                         <i className={`fas ${it.icon}`} style={{ color: it.color }}></i>
                                         {it.takenBy !== null && (
-                                            <div className="stamp" style={{ background: it.takenBy === myId ? '#e11d48' : '#2563eb' }}>
-                                                {it.takenBy === myId ? '我的选择' : '被抢走'}
+                                            <div className="stamp" style={{ background: it.takenBy === 0 ? '#e11d48' : '#2563eb' }}>
+                                                {it.takenBy === 0 ? '我的选择' : '被抢走'}
                                             </div>
                                         )}
                                     </div>
@@ -595,7 +593,7 @@
                                 {players.map(p => {
                                     const isDanger = p.stats.f > p.stats.t && view !== 'END';
                                     return (
-                                        <tr key={p.id} className={`${p.id === myId ? 'row-me' : ''} ${!p.alive && view === 'END' ? 'row-dead' : ''}`}>
+                                        <tr key={p.id} className={`${p.id === 0 ? 'row-me' : ''} ${!p.alive && view === 'END' ? 'row-dead' : ''}`}>
                                             <td className="text-left pl-4">{p.name} {!p.alive && view === 'END' && '💀'}</td>
                                             <td>{p.stats.v}</td>
                                             <td>{p.stats.w}</td>
@@ -608,6 +606,7 @@
                         </table>
                     </div>
 
+                    {}
                     {view === 'END' && (
                         <div className="modal-overlay">
                             <div className="modal-box" style={{borderWidth: '8px', borderColor: '#78350f'}}>
@@ -617,7 +616,7 @@
                                         <div key={p.id} className={`flex justify-between items-center p-4 border-4 rounded-xl ${p.alive ? 'bg-orange-100 border-orange-500' : 'bg-gray-300 border-gray-500'}`}>
                                             <div className="text-left">
                                                 <div className="text-2xl font-black text-stone-800">
-                                                    {p.name} {p.id === myId ? " (你)" : ""}
+                                                    {p.name} 
                                                     {p.alive && p.stats.v === Math.max(...players.filter(x=>x.alive).map(x=>x.stats.v)) && <i className="fas fa-crown text-yellow-500 ml-2"></i>}
                                                 </div>
                                                 <div className="text-base font-bold opacity-75">{p.alive ? "逃出生天！" : p.reason}</div>
@@ -626,13 +625,7 @@
                                         </div>
                                     ))}
                                 </div>
-                                <button onClick={() => {
-                                    if (ws && isConnected) {
-                                        ws.send(JSON.stringify({ type: "restart" }));
-                                    } else {
-                                        setView('START');
-                                    }
-                                }} className="action-btn action-btn-primary">返回营地</button>
+                                <button onClick={() => setView('START')} className="action-btn action-btn-primary">返回营地</button>
                             </div>
                         </div>
                     )}
