@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>坏蛋冰淇淋</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&display=swap');
+        body {
+            background-color: #020617;
+            margin: 0;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            color: #f8fafc;
+            font-family: 'ZCOOL KuaiLe', cursive;
+        }
+        canvas {
+            image-rendering: pixelated;
+            border: 8px solid #1e293b;
+            border-radius: 12px;
+            box-shadow: 0 0 100px rgba(56, 189, 248, 0.2);
+            background: #cbd5e1;
+        }
+        .ui-container {
+            width: 720px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            padding: 10px 20px;
+            background: #1e293b;
+            border: 2px solid #334155;
+            border-radius: 16px;
+        }
+        .stat-group { text-align: center; }
+        .stat-label { font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; }
+        .stat-value { font-size: 1.5rem; font-weight: 900; color: #38bdf8; line-height: 1.2; }
+        .overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(2, 6, 23, 0.9);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+        .menu-card {
+            background: #1e293b;
+            padding: 3rem;
+            border-radius: 24px;
+            border: 4px solid #38bdf8;
+            text-align: center;
+        }
+        .level-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 12px;
+            margin: 20px 0;
+        }
+        .level-btn {
+            width: 50px; height: 50px;
+            background: #334155;
+            display: flex; align-items: center; justify-content: center;
+            border-radius: 12px; cursor: pointer; transition: 0.2s;
+            font-size: 1.2rem; font-weight: bold;
+        }
+        .level-btn:hover { background: #38bdf8; color: #0f172a; transform: scale(1.1); }
+        .btn-main {
+            background: linear-gradient(180deg, #38bdf8, #0284c7);
+            padding: 12px 40px; border-radius: 14px;
+            font-weight: 900; cursor: pointer; box-shadow: 0 5px 0 #075985;
+        }
+        .btn-main:active { transform: translateY(3px); box-shadow: 0 2px 0 #075985; }
+        .btn-quit {
+            background: #334155; padding: 6px 12px; border-radius: 8px; font-size: 0.8rem;
+            cursor: pointer; transition: 0.2s;
+        }
+        .btn-quit:hover { background: #ef4444; }
+    </style>
+</head>
+<body>
+
+    <div id="ui-game" class="hidden">
+        <div class="ui-container">
+            <div class="btn-quit" onclick="showLevelSelect()">退出冒险</div>
+            <div class="stat-group">
+                <div class="stat-label">当前关卡</div>
+                <div id="level-val" class="stat-value">1</div>
+            </div>
+            <div class="stat-group">
+                <div class="stat-label">波次进度</div>
+                <div id="wave-val" class="stat-value">1 / 2</div>
+            </div>
+            <div class="stat-group">
+                <div class="stat-label">剩余水果</div>
+                <div id="target" class="stat-value">0</div>
+            </div>
+            <div class="stat-group">
+                <div class="stat-label">总得分</div>
+                <div id="score" class="stat-value">0</div>
+            </div>
+        </div>
+        <canvas id="gameCanvas"></canvas>
+    </div>
+
+    <!-- 菜单 -->
+    <div id="screen-menu" class="overlay flex">
+        <div class="menu-card">
+            <h1 class="text-6xl font-black mb-2 text-white italic">坏蛋冰淇淋</h1>
+            <p class="text-blue-400 mb-8 tracking-widest font-bold">REMASTERED PRO</p>
+            <div class="btn-main text-xl" onclick="showLevelSelect()">开始冒险</div>
+        </div>
+    </div>
+
+    <!-- 选关 -->
+    <div id="screen-select" class="overlay">
+        <div class="menu-card">
+            <h2 class="text-3xl mb-4 text-white">关卡选择</h2>
+            <div class="level-grid" id="level-btns"></div>
+            <div class="mt-6 text-slate-500 cursor-pointer hover:text-white" onclick="showMenu()">返回首页</div>
+        </div>
+    </div>
+
+    <!-- 结算 -->
+    <div id="screen-result" class="overlay">
+        <div class="menu-card">
+            <h1 id="result-msg" class="text-6xl font-black mb-4 italic uppercase">Success</h1>
+            <div id="result-detail" class="text-slate-400 mb-8"></div>
+            <div class="flex gap-4">
+                <div class="btn-main bg-slate-600" onclick="showLevelSelect()">关卡列表</div>
+                <div id="result-btn" class="btn-main" onclick="handleResultAction()">继续</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreEl = document.getElementById('score');
+        const targetEl = document.getElementById('target');
+        const levelValEl = document.getElementById('level-val');
+        const waveValEl = document.getElementById('wave-val');
+        const overlayResult = document.getElementById('screen-result');
+        const msgEl = document.getElementById('result-msg');
+        const resultDetail = document.getElementById('result-detail');
+        const resultBtn = document.getElementById('result-btn');
+
+        const TILE_SIZE = 40;
+        const COLS = 17; 
+        const ROWS = 15;
+        canvas.width = COLS * TILE_SIZE;
+        canvas.height = ROWS * TILE_SIZE;
+
+        // 基础地块类型 (Base Layer)
+        const BASE = { NORMAL: 0, SNOW: 1, FIRE: 2 };
+        // 物品类型 (Object Layer)
+        const TILE = { EMPTY: 0, WALL: 1, ICE: 2, STRAWBERRY: 3, CHERRY: 4, KIWI: 5, ICE_S: 6, ICE_C: 7, ICE_K: 8 };
+        const EMOJI = { [TILE.STRAWBERRY]:'🍓', [TILE.CHERRY]:'🍒', [TILE.KIWI]:'🥝', [TILE.ICE_S]:'🍓', [TILE.ICE_C]:'🍒', [TILE.ICE_K]:'🥝' };
+
+        // 人工校对地图模板：0是地，1是墙，9是凝雪地块，8是火焰地块 (转换逻辑见 initMap)
+        const RAW_TEMPLATES = [
+            [ // 1. 结构化大厅 (基础教学)
+                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+                [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+                [1,0,1,1,0,1,1,9,1,9,1,1,0,1,1,0,1],
+                [1,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,1],
+                [1,0,0,0,8,0,0,0,0,0,0,0,8,0,0,0,1],
+                [1,1,1,0,1,1,1,0,1,0,1,1,1,0,1,1,1],
+                [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+                [1,0,1,0,1,1,0,1,1,1,0,1,1,0,1,0,1],
+                [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+                [1,1,1,0,1,1,1,0,1,0,1,1,1,0,1,1,1],
+                [1,0,0,0,8,0,0,0,0,0,0,0,8,0,0,0,1],
+                [1,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,1],
+                [1,0,1,1,0,1,1,9,1,9,1,1,0,1,1,0,1],
+                [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+            ],
+            [ // 2. 围城 (中间是资源和危险并存的中心)
+                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+                [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1],
+                [1,0,1,1,0,1,1,0,1,0,1,1,0,1,1,0,1],
+                [1,0,1,8,0,8,1,0,0,0,1,8,0,8,1,0,1],
+                [1,0,1,0,1,0,1,1,9,1,1,0,1,0,0,0,1],
+                [1,0,1,0,1,0,0,0,0,0,0,0,1,0,1,0,1],
+                [1,0,0,0,1,1,1,0,1,0,1,1,1,0,0,0,1],
+                [1,1,1,0,0,9,0,0,8,0,0,9,0,0,1,1,1],
+                [1,0,0,0,1,1,1,0,1,0,1,1,1,0,0,0,1],
+                [1,0,1,0,1,0,0,0,0,0,0,0,1,0,1,0,1],
+                [1,0,1,0,1,0,1,1,9,1,1,0,1,0,0,0,1],
+                [1,0,1,8,0,8,1,0,0,0,1,8,0,8,1,0,1],
+                [1,0,1,1,0,1,1,0,1,0,1,1,0,1,1,0,1],
+                [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1],
+                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+            ],
+            [ // 3. 极寒冰道 (大量凝雪地块)
+                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+                [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,9,1],
+                [1,0,1,1,1,1,1,1,0,1,1,1,1,1,1,0,1],
+                [1,9,1,0,0,0,0,0,0,0,0,0,0,0,1,0,1],
+                [1,0,1,0,1,1,1,1,1,1,1,1,1,0,1,0,1],
+                [1,0,1,0,1,8,0,0,9,0,0,8,1,0,1,0,1],
+                [1,0,1,0,1,0,1,1,0,1,1,0,1,0,1,0,1],
+                [1,0,0,0,9,0,1,0,0,0,1,0,9,0,0,0,1],
+                [1,0,1,0,1,0,1,1,0,1,1,0,1,0,1,0,1],
+                [1,0,1,0,1,8,0,0,9,0,0,8,1,0,1,0,1],
+                [1,0,1,0,1,1,1,1,1,1,1,1,1,0,1,0,1],
+                [1,0,1,0,0,0,0,0,0,0,0,0,0,0,1,9,1],
+                [1,0,1,1,1,1,1,1,0,1,1,1,1,1,1,0,1],
+                [1,9,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+            ]
+        ];
+
+        let game = {
+            state: 'MENU', level: 1, wave: 1, totalWaves: 2,
+            map: [], baseMap: [], dynamicTimers: [],
+            player: null, enemies: [], fruits: [], particles: [],
+            score: 0, active: false, frame: 0, keyStack: []
+        };
+
+        function initMap(lvl) {
+            let raw = RAW_TEMPLATES[lvl % RAW_TEMPLATES.length];
+            game.baseMap = Array.from({length: ROWS}, () => Array(COLS).fill(BASE.NORMAL));
+            game.map = Array.from({length: ROWS}, () => Array(COLS).fill(TILE.EMPTY));
+            game.dynamicTimers = Array.from({length: ROWS}, () => Array(COLS).fill(0));
+
+            for (let y = 0; y < ROWS; y++) {
+                for (let x = 0; x < COLS; x++) {
+                    let v = raw[y][x];
+                    if (v === 1) game.map[y][x] = TILE.WALL;
+                    else if (v === 9) game.baseMap[y][x] = BASE.SNOW;
+                    else if (v === 8) game.baseMap[y][x] = BASE.FIRE;
+
+                    // 在初始地块上随机加冰
+                    if (v === 0 && Math.random() < 0.4 && !(x < 4 && y < 4)) {
+                        game.map[y][x] = TILE.ICE;
+                    }
+                }
+            }
+        }
+
+        function startLevel(lvl) {
+            game.state = 'GAME'; game.level = lvl; game.wave = 1;
+            game.totalWaves = lvl >= 4 ? 3 : 2;
+            initMap(lvl);
+            game.fruits = []; game.particles = [];
+            game.player = { x: 1, y: 1, tx: 1, ty: 1, facingX: 0, facingY: 1, bounce: 0 };
+            
+            game.enemies = [];
+            const eTypes = ['WANDERER', 'TRACKER', 'BREAKER', 'DASHER'];
+            const eCount = 2 + Math.floor(lvl / 3);
+            for(let i=0; i<eCount; i++) {
+                let x, y;
+                do { x = Math.floor(Math.random()*(COLS-2))+1; y = Math.floor(Math.random()*(ROWS-2))+1; }
+                while(game.map[y][x] === TILE.WALL || (x<4 && y<4));
+                
+                let type = eTypes[i % eTypes.length];
+                if(lvl === 1) type = 'WANDERER';
+                game.enemies.push({
+                    x, y, tx: x, ty: y, dx: 0, dy: 1, type,
+                    speed: (type === 'BREAKER') ? 0.038 : 0.05, 
+                    breakTimer: 0, state: 'IDLE', dashTimer: 0
+                });
+            }
+
+            document.querySelectorAll('.overlay').forEach(el => el.style.display = 'none');
+            document.getElementById('ui-game').classList.remove('hidden');
+            spawnWave();
+            game.active = true;
+            requestAnimationFrame(tick);
+        }
+
+        function spawnWave() {
+            let fruitType = [TILE.STRAWBERRY, TILE.CHERRY, TILE.KIWI][game.wave-1];
+            const count = 6 + game.level;
+            let spots = [];
+            for(let y=1; y<ROWS-1; y++) for(let x=1; x<COLS-1; x++) 
+                if((game.map[y][x] === TILE.EMPTY || game.map[y][x] === TILE.ICE) && !(x<3 && y<3)) spots.push({x, y});
+            
+            spots.sort(() => Math.random() - 0.5);
+            for(let i=0; i<Math.min(count, spots.length); i++) {
+                const {x, y} = spots[i];
+                if(fruitType === TILE.STRAWBERRY) {
+                    game.map[y][x] = (game.map[y][x] === TILE.ICE) ? TILE.ICE_S : TILE.STRAWBERRY;
+                } else {
+                    game.fruits.push({ x, y, tx: x, ty: y, type: fruitType, inIce: game.map[y][x] === TILE.ICE, speed: 0.04 });
+                }
+            }
+            updateFruitCount();
+        }
+
+        function getPathDir(ent, target, type) {
+            const sx = Math.round(ent.x), sy = Math.round(ent.y);
+            const tx = Math.round(target.x), ty = Math.round(target.y);
+            
+            if (type === 'WANDERER') {
+                const ds = [{dx:1,dy:0},{dx:-1,dy:0},{dx:0,dy:1},{dx:0,dy:-1}].sort(() => Math.random()-0.5);
+                return ds.find(d => canPass(ent.x+d.dx, ent.y+d.dy, type)) || null;
+            }
+
+            const queue = [[sx, sy, []]];
+            const visited = new Set([`${sx},${sy}`]);
+            while(queue.length > 0) {
+                const [cx, cy, path] = queue.shift();
+                if(cx === tx && cy === ty) return path[0] || null;
+                for(const d of [{dx:1,dy:0},{dx:-1,dy:0},{dx:0,dy:1},{dx:0,dy:-1}]) {
+                    const nx = cx + d.dx, ny = cy + d.dy;
+                    if (!isValid(nx, ny)) continue;
+                    
+                    const tile = game.map[ny][nx];
+                    let canGo = false;
+                    // 破冰和冲撞：寻路完全不考虑冰块
+                    if (type === 'BREAKER' || type === 'DASHER') {
+                        canGo = tile !== TILE.WALL;
+                    } else {
+                        canGo = tile === TILE.EMPTY || (tile >= 3 && tile <= 5);
+                    }
+
+                    if(canGo && !visited.has(`${nx},${ny}`)) {
+                        visited.add(`${nx},${ny}`);
+                        queue.push([nx, ny, [...path, d]]);
+                    }
+                }
+            }
+            return null;
+        }
+
+        function updateDasher(en, p) {
+            if (en.state === 'IDLE') {
+                const dir = getPathDir(en, p, 'DASHER') || {dx: 0, dy: 1};
+                en.dx = dir.dx; en.dy = dir.dy;
+                en.state = 'CHARGING'; en.dashTimer = 90; 
+            } else if (en.state === 'CHARGING') {
+                en.dashTimer--;
+                if(en.dashTimer <= 0) { en.state = 'DASHING'; en.speed = 0.38; }
+            } else if (en.state === 'DASHING') {
+                let nx = en.x + en.dx * en.speed, ny = en.y + en.dy * en.speed;
+                const gx = Math.round(nx), gy = Math.round(ny);
+                if (isValid(gx, gy) && (game.map[gy][gx] === TILE.ICE || game.map[gy][gx] >= 6 || isFruitInIce(gx, gy))) {
+                    breakIceTile(gx, gy);
+                }
+                if(!isValid(gx, gy) || game.map[gy][gx] === TILE.WALL) {
+                    en.state = 'COOLDOWN'; en.dashTimer = 40; en.speed = 0.05;
+                    en.x = en.tx = Math.round(en.x); en.y = en.ty = Math.round(en.y);
+                } else {
+                    en.x = en.tx = nx; en.y = en.ty = ny;
+                    if(Math.abs(en.x - Math.round(en.x)) < 0.1 && Math.abs(en.y - Math.round(en.y)) < 0.1) {
+                         en.x = en.tx = Math.round(en.x); en.y = en.ty = Math.round(en.y);
+                         en.state = 'COOLDOWN'; en.dashTimer = 30;
+                    }
+                }
+            } else if (en.state === 'COOLDOWN') {
+                en.dashTimer--; if(en.dashTimer <= 0) en.state = 'IDLE';
+            }
+        }
+
+        function isFruitInIce(x, y) { return game.fruits.some(f => f.tx === x && f.ty === y && f.inIce); }
+        function isEntityOn(x, y) {
+            if (Math.round(game.player.x) === x && Math.round(game.player.y) === y) return true;
+            return game.enemies.some(e => Math.round(e.x) === x && Math.round(e.y) === y);
+        }
+
+        async function triggerIceAction() {
+            const p = game.player;
+            if(p.x !== p.tx || p.y !== p.ty) return;
+            let tx = p.x + p.facingX, ty = p.y + p.facingY;
+            if(!isValid(tx, ty)) return;
+            const tile = game.map[ty][tx];
+            const fruitInIce = isFruitInIce(tx, ty);
+
+            if(tile === TILE.ICE || tile >= 6 || fruitInIce) {
+                while(isValid(tx, ty)) {
+                    if(game.map[ty][tx] === TILE.ICE || game.map[ty][tx] >= 6 || isFruitInIce(tx, ty)) {
+                        breakIceTile(tx, ty); tx += p.facingX; ty += p.facingY;
+                        await new Promise(r => setTimeout(r, 40));
+                    } else break;
+                }
+            } else if(tile === TILE.EMPTY || (tile >= 3 && tile <= 5)) {
+                while(isValid(tx, ty)) {
+                    if(game.enemies.some(e => Math.round(e.x) === tx && Math.round(e.y) === ty)) break;
+                    const f = game.fruits.find(f => f.tx === tx && f.ty === ty && !f.inIce);
+                    const mapT = game.map[ty][tx];
+                    if(mapT === TILE.EMPTY || (mapT >= 3 && mapT <= 5) || f) {
+                        if(f) f.inIce = true; else if(mapT >= 3 && mapT <= 5) game.map[ty][tx] += 3; else game.map[ty][tx] = TILE.ICE;
+                        spawnParticles(tx, ty, '#f0f9ff'); tx += p.facingX; ty += p.facingY;
+                        await new Promise(r => setTimeout(r, 40));
+                    } else break;
+                }
+            }
+        }
+
+        function breakIceTile(x, y) {
+            if(!isValid(x, y)) return;
+            const t = game.map[y][x];
+            if(t === TILE.ICE) game.map[y][x] = TILE.EMPTY;
+            else if(t >= 6) game.map[y][x] = t - 3;
+            const f = game.fruits.find(f => f.tx === x && f.ty === y && f.inIce);
+            if(f) f.inIce = false;
+            game.dynamicTimers[y][x] = 0; // 重置凝雪计时
+            spawnParticles(x, y, '#bae6fd');
+        }
+
+        function tick() {
+            if(!game.active) return;
+            game.frame++;
+            const p = game.player;
+
+            // 地块逻辑
+            for(let y=0; y<ROWS; y++) {
+                for(let x=0; x<COLS; x++) {
+                    const base = game.baseMap[y][x];
+                    const obj = game.map[y][x];
+                    
+                    if (base === BASE.SNOW) { // 凝雪
+                        const fruitOn = game.fruits.find(f => f.tx === x && f.ty === y);
+                        // 逻辑：如果是空地或没冰的水果，且没人站在上面
+                        if ((obj === TILE.EMPTY || (obj >= 3 && obj <= 5) || (fruitOn && !fruitOn.inIce)) && !isEntityOn(x, y)) {
+                            game.dynamicTimers[y][x]++;
+                            if (game.dynamicTimers[y][x] >= 180) { // 3秒
+                                if (fruitOn) fruitOn.inIce = true;
+                                else if (obj >= 3 && obj <= 5) game.map[y][x] += 3;
+                                else game.map[y][x] = TILE.ICE;
+                                game.dynamicTimers[y][x] = 0;
+                            }
+                        } else {
+                            game.dynamicTimers[y][x] = 0;
+                        }
+                    } else if (base === BASE.FIRE) { // 火焰
+                        const fInIce = game.fruits.find(f => f.tx === x && f.ty === y && f.inIce);
+                        if (obj === TILE.ICE || obj >= 6 || fInIce) {
+                            game.dynamicTimers[y][x]++;
+                            if (game.dynamicTimers[y][x] >= 180) {
+                                if (fInIce) fInIce.inIce = false;
+                                else if (obj >= 6) game.map[y][x] -= 3;
+                                else game.map[y][x] = TILE.EMPTY;
+                                game.dynamicTimers[y][x] = 0;
+                            }
+                        } else {
+                            game.dynamicTimers[y][x] = 0;
+                        }
+                    }
+                }
+            }
+
+            if(p.x === p.tx && p.y === p.ty && game.keyStack.length > 0) {
+                const k = game.keyStack[game.keyStack.length - 1];
+                p.facingX = k.dx; p.facingY = k.dy;
+                if(canPass(p.x+k.dx, p.y+k.dy)) { p.tx += k.dx; p.ty += k.dy; }
+            }
+            handleMove(p, true);
+
+            game.fruits.forEach(f => {
+                if(f.x === f.tx && f.y === f.ty && !f.inIce) {
+                    if(f.type === TILE.CHERRY) {
+                        if (game.frame % 30 === 0) {
+                            const ds = [{dx:1,dy:0},{dx:-1,dy:0},{dx:0,dy:1},{dx:0,dy:-1}].sort(()=>Math.random()-0.5);
+                            const b = ds.find(d => canPass(f.x+d.dx, f.y+d.dy));
+                            if(b) { f.tx += b.dx; f.ty += b.dy; }
+                        }
+                    } else if(f.type === TILE.KIWI) {
+                        let targetIce = null, minDist = 999;
+                        for(let ry=1; ry<ROWS-1; ry++) {
+                            for(let rx=1; rx<COLS-1; rx++) {
+                                if(game.map[ry][rx] === TILE.ICE && !game.fruits.some(of => of!==f && of.tx===rx && of.ty===ry)) {
+                                    const dist = Math.abs(rx-f.x) + Math.abs(ry-f.y);
+                                    if(dist < minDist) { minDist = dist; targetIce = {x:rx, y:ry}; }
+                                }
+                            }
+                        }
+                        if(targetIce) {
+                            const dx = Math.sign(targetIce.x - f.x);
+                            const dy = Math.sign(targetIce.y - f.y);
+                            if(dx !== 0 && canPass(f.x+dx, f.y)) f.tx += dx;
+                            else if(dy !== 0 && canPass(f.x, f.y+dy)) f.ty += dy;
+                            if(f.x === targetIce.x && f.y === targetIce.y) f.inIce = true;
+                        }
+                    }
+                }
+                handleMove(f);
+                if(Math.hypot(f.x - p.x, f.y - p.y) < 0.6 && !f.inIce) { f.toDelete = true; game.score += 150; updateFruitCount(); }
+            });
+            game.fruits = game.fruits.filter(f => !f.toDelete);
+
+            game.enemies.forEach(en => {
+                if(en.type === 'DASHER') updateDasher(en, p);
+                else {
+                    if(en.x === en.tx && en.y === en.ty) {
+                        const targetDir = getPathDir(en, p, en.type);
+                        if(targetDir) { en.dx = targetDir.dx; en.dy = targetDir.dy; }
+                        if(en.type === 'BREAKER') {
+                            const nx = en.x+en.dx, ny = en.y+en.dy;
+                            if(isValid(nx, ny) && (game.map[ny][nx] === TILE.ICE || game.map[ny][nx] >= 6 || isFruitInIce(nx, ny))) {
+                                en.breakTimer++; if(en.breakTimer > 35) { breakIceTile(nx, ny); en.breakTimer = 0; } return;
+                            }
+                        }
+                        if(!canPass(en.x+en.dx, en.y+en.dy, en.type)) {
+                            const ds = [{dx:1,dy:0},{dx:-1,dy:0},{dx:0,dy:1},{dx:0,dy:-1}].sort(()=>Math.random()-0.5);
+                            const b = ds.find(d => canPass(en.x+d.dx, en.y+d.dy, en.type));
+                            if(b) { en.dx = b.dx; en.dy = b.dy; }
+                        }
+                        en.tx += en.dx; en.ty += en.dy;
+                    }
+                    handleMove(en);
+                }
+                if(Math.hypot(en.x - p.x, en.y - p.y) < 0.6) endGame(false);
+            });
+            draw();
+            requestAnimationFrame(tick);
+        }
+
+        function handleMove(e, isP = false) {
+            let s = e.speed || 0.18;
+            if(e.type === TILE.KIWI) s = 0.035; 
+            if(e.x !== e.tx || e.y !== e.ty) {
+                e.x += Math.sign(e.tx - e.x) * Math.min(Math.abs(e.tx - e.x), s);
+                e.y += Math.sign(e.ty - e.y) * Math.min(Math.abs(e.ty - e.y), s);
+                if(isP) e.bounce = Math.sin(game.frame * 0.25) * 4;
+                if(Math.abs(e.x - e.tx) < 0.01 && Math.abs(e.y - e.ty) < 0.01) {
+                    e.x = e.tx; e.y = e.ty;
+                    if(isP) { const t = game.map[e.y][e.x]; if(t >= 3 && t <= 5) { game.map[e.y][e.x] = TILE.EMPTY; game.score += 100; updateFruitCount(); } }
+                }
+            }
+        }
+
+        function updateFruitCount() {
+            let c = 0; 
+            for(let r of game.map) for(let v of r) if(v >= 3 && v <= 8) c++;
+            game.fruits.forEach(f => { if(!f.toDelete) c++; });
+            targetEl.textContent = c; scoreEl.textContent = game.score;
+            levelValEl.textContent = game.level;
+            waveValEl.textContent = `${game.wave} / ${game.totalWaves}`;
+            if(c === 0 && game.active) { if(game.wave < game.totalWaves) { game.wave++; spawnWave(); } else endGame(true); }
+        }
+
+        function canPass(x, y, type) { 
+            if (!isValid(x, y)) return false;
+            const tile = game.map[y][x];
+            if (type === 'BREAKER' || type === 'DASHER') return tile !== TILE.WALL;
+            return tile === TILE.EMPTY || (tile >= 3 && tile <= 5);
+        }
+        function isValid(x, y) { return x >= 0 && x < COLS && y >= 0 && y < ROWS; }
+        function spawnParticles(x, y, color) { for(let i=0; i<6; i++) game.particles.push({ x: x*TILE_SIZE+20, y: y*TILE_SIZE+20, vx: (Math.random()-0.5)*5, vy: (Math.random()-0.5)*5, life: 1.0, color }); }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            // 绘制地块 Base Layer
+            for(let y=0; y<ROWS; y++) {
+                for(let x=0; x<COLS; x++) {
+                    const b = game.baseMap[y][x], px = x*TILE_SIZE, py = y*TILE_SIZE;
+                    const timer = game.dynamicTimers[y][x];
+                    
+                    if (b === BASE.SNOW) {
+                        // 背景：深蓝色凝冰地基
+                        ctx.fillStyle = '#0c4a6e'; ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+                        // 绘制“雪花”符号
+                        ctx.font = '20px Arial';
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillStyle = '#7dd3fc';
+                        ctx.fillText('❄️', px + TILE_SIZE/2, py + TILE_SIZE/2);
+                        
+                        // 进度条：显示凝雪进度 (呼吸闪烁)
+                        if (timer > 0) {
+                            ctx.fillStyle = `rgba(255, 255, 255, ${Math.sin(game.frame*0.1)*0.3 + 0.5})`;
+                            ctx.fillRect(px, py + TILE_SIZE - 4, (timer/180)*TILE_SIZE, 4);
+                        }
+                    } else if (b === BASE.FIRE) {
+                        // 背景：深红/黑色岩浆感
+                        ctx.fillStyle = '#450a0a'; ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+                        // 绘制“火焰”符号
+                        ctx.font = '22px Arial';
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        // 添加一点随机抖动模拟火苗
+                        const shake = Math.sin(game.frame * 0.2 + x) * 2;
+                        ctx.fillText('🔥', px + TILE_SIZE/2, py + TILE_SIZE/2 + shake);
+                        
+                        // 进度条：显示融化进度
+                        if (timer > 0) {
+                            ctx.fillStyle = '#f87171';
+                            ctx.fillRect(px, py + TILE_SIZE - 4, (timer/180)*TILE_SIZE, 4);
+                        }
+                    } else {
+                        // 普通地面：增加网格质感
+                        ctx.fillStyle = '#cbd5e1'; ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+                        ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 0.5;
+                        ctx.strokeRect(px, py, TILE_SIZE, TILE_SIZE);
+                    }
+                }
+            }
+
+            // 绘制物品 Object Layer
+            for(let y=0; y<ROWS; y++) {
+                for(let x=0; x<COLS; x++) {
+                    const t = game.map[y][x], px = x*TILE_SIZE, py = y*TILE_SIZE;
+                    if(t === TILE.WALL) { ctx.fillStyle = '#1e293b'; ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE); ctx.strokeStyle = '#334155'; ctx.strokeRect(px+3, py+3, TILE_SIZE-6, TILE_SIZE-6); }
+                    else if(t === TILE.ICE || t >= 6) {
+                        ctx.fillStyle = '#7dd3fc'; ctx.fillRect(px+1, py+1, TILE_SIZE-2, TILE_SIZE-2);
+                        ctx.strokeStyle = 'white'; ctx.strokeRect(px+4, py+4, TILE_SIZE-8, TILE_SIZE-8);
+                        if(t >= 6) { ctx.font = '24px Arial'; ctx.fillText(EMOJI[t], px+6, py+30); ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.fillRect(px+4, py+4, TILE_SIZE-8, TILE_SIZE-8); }
+                    } else if(t >= 3 && t <= 5) { ctx.font = '28px Arial'; ctx.fillText(EMOJI[t], px + TILE_SIZE/2, py + TILE_SIZE/2 + 2); }
+                }
+            }
+
+            game.fruits.forEach(f => {
+                const px = f.x*TILE_SIZE, py = f.y*TILE_SIZE;
+                if(f.inIce) { ctx.fillStyle = '#7dd3fc'; ctx.fillRect(px+1, py+1, TILE_SIZE-2, TILE_SIZE-2); ctx.font = '24px Arial'; ctx.fillText(EMOJI[f.type], px+6, py+30); ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.fillRect(px+4, py+4, TILE_SIZE-8, TILE_SIZE-8); }
+                else { ctx.font = '28px Arial'; ctx.fillText(EMOJI[f.type], px + TILE_SIZE/2, py + TILE_SIZE/2 + 2); }
+            });
+
+            game.particles.forEach((p, i) => { ctx.fillStyle = p.color; ctx.globalAlpha = p.life; ctx.fillRect(p.x, p.y, 4, 4); p.x += p.vx; p.y += p.vy; p.life -= 0.05; if(p.life <= 0) game.particles.splice(i, 1); });
+            ctx.globalAlpha = 1.0;
+
+            game.enemies.forEach(en => {
+                const ex = en.x*TILE_SIZE+20, ey = en.y*TILE_SIZE+20;
+                let c = '#3b82f6'; if(en.type === 'TRACKER') c = '#a855f7'; if(en.type === 'BREAKER') c = '#ea580c';
+                if(en.type === 'DASHER') {
+                    const isWhite = Math.floor(game.frame/4) % 2 === 0;
+                    c = en.state === 'CHARGING' ? (isWhite ? '#ffffff' : '#06b6d4') : '#06b6d4';
+                }
+                ctx.fillStyle = c; ctx.beginPath(); ctx.arc(ex, ey, 16, 0, Math.PI, true); ctx.lineTo(ex+16, ey+12); ctx.lineTo(ex-16, ey+12); ctx.fill();
+                ctx.fillStyle = 'white'; ctx.fillRect(ex-7, ey-5, 5, 5); ctx.fillRect(ex+2, ey-5, 5, 5);
+            });
+            const p = game.player;
+            ctx.save(); ctx.translate(p.x*TILE_SIZE+20, p.y*TILE_SIZE+20+p.bounce);
+            ctx.fillStyle = 'white'; ctx.beginPath(); ctx.arc(0, -6, 17, Math.PI, 0); ctx.lineTo(17, 14); ctx.quadraticCurveTo(0, 20, -17, 14); ctx.fill();
+            ctx.fillStyle = 'black'; const ex = p.facingX*6, ey = p.facingY*3-6;
+            ctx.beginPath(); ctx.arc(-8+ex, ey, 3, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(8+ex, ey, 3, 0, Math.PI*2); ctx.fill();
+            ctx.restore();
+        }
+
+        function showMenu() { game.state = 'MENU'; updateScreen(); }
+        function showLevelSelect() { 
+            game.state = 'SELECT'; const grid = document.getElementById('level-btns'); grid.innerHTML = '';
+            for(let i=1; i<=10; i++) { const b = document.createElement('div'); b.className = 'level-btn'; b.textContent = i; b.onclick = () => { game.score=0; startLevel(i); }; grid.appendChild(b); }
+            updateScreen(); 
+        }
+        function updateScreen() {
+            document.querySelectorAll('.overlay').forEach(el => el.style.display = 'none');
+            document.getElementById('ui-game').classList.add('hidden');
+            if(game.state === 'MENU') document.getElementById('screen-menu').style.display = 'flex';
+            if(game.state === 'SELECT') document.getElementById('screen-select').style.display = 'flex';
+            if(game.state === 'RESULT') document.getElementById('screen-result').style.display = 'flex';
+        }
+        function endGame(win) {
+            game.active = false; game.lastWin = win; game.state = 'RESULT';
+            msgEl.textContent = win ? "挑战成功" : "挑战失败"; msgEl.style.color = win ? "#22c55e" : "#ef4444";
+            resultDetail.textContent = win ? `顺利完成第 ${game.level} 关！` : `在第 ${game.level} 关被抓住了。`;
+            resultBtn.textContent = win ? "继续前进" : "再试一次"; updateScreen();
+        }
+        function handleResultAction() { if(game.lastWin) startLevel(game.level + 1); else startLevel(game.level); }
+
+        const keyMap = { 'w':{dx:0,dy:-1},'s':{dx:0,dy:1},'a':{dx:-1,dy:0},'d':{dx:1,dy:0}, 'ArrowUp':{dx:0,dy:-1},'ArrowDown':{dx:0,dy:1},'ArrowLeft':{dx:-1,dy:0},'ArrowRight':{dx:1,dy:0} };
+        window.addEventListener('keydown', e => { if(keyMap[e.key]) { const m = keyMap[e.key]; game.keyStack = game.keyStack.filter(k => k.dx !== m.dx || k.dy !== m.dy); game.keyStack.push(m); e.preventDefault(); } if(e.key === ' ') { triggerIceAction(); e.preventDefault(); } });
+        window.addEventListener('keyup', e => { if(keyMap[e.key]) { const m = keyMap[e.key]; game.keyStack = game.keyStack.filter(k => k.dx !== m.dx || k.dy !== m.dy); } });
+
+        window.onload = showMenu;
+    </script>
+</body>
+</html>
